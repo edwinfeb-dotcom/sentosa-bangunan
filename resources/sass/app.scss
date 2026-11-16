@@ -1,0 +1,134 @@
+@import "@fontsource/plus-jakarta-sans/400.css";
+@import "@fontsource/plus-jakarta-sans/500.css";
+@import "@fontsource/plus-jakarta-sans/600.css";
+@import "@fontsource/plus-jakarta-sans/700.css";
+
+// Warna Dasar
+$primary: #1e3a8a; // Biru Gelap
+$success: #10b981; // Hijau
+$danger: #ef4444; // Merah
+$warning: #f59e0b; // Kuning Emas
+$info: #3b82f6; // Biru Muda
+
+$body-bg: #f4f7f6; // Abu-abu sangat muda (sedikit kehijauan)
+$body-color: #334155; // Slate Grey
+
+@import "bootstrap/scss/bootstrap";
+
+// --- CUSTOM DESIGN SYSTEM ---
+
+body {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  background-color: $body-bg;
+  color: $body-color;
+  -webkit-font-smoothing: antialiased;
+}
+
+// 1. Card (Bersih tanpa shadow tebal)
+.card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02); // Shadow sangat tipis
+  background: #fff;
+
+  .card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 1.25rem 1.5rem;
+    border-radius: 12px 12px 0 0 !important;
+    font-weight: 700;
+    color: #1e293b;
+  }
+}
+
+// 2. Tabel Modern (Gaya Klien)
+.table {
+  margin-bottom: 0;
+
+  thead {
+    background-color: #f8fafc;
+    th {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      font-weight: 700;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 1rem 1.5rem;
+      border-top: none;
+    }
+  }
+
+  tbody {
+    td {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+      color: #334155;
+      font-size: 0.875rem;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    tr:hover {
+      background-color: #f8fafc;
+    }
+  }
+}
+
+// 3. Form Inputs (Modern & Clean)
+.form-control,
+.form-select {
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+  color: #1e293b;
+
+  &:focus {
+    border-color: $primary;
+    box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+  }
+}
+
+// 4. Tombol (Tegas & Profesional)
+.btn {
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.5rem 1.25rem;
+  transition: all 0.2s ease-in-out;
+}
+.btn-primary {
+  background-color: $primary;
+  border-color: $primary;
+  &:hover {
+    background-color: darken($primary, 10%);
+    transform: translateY(-1px);
+  }
+}
+
+// 5. Badge Status (Seperti di desain klien)
+.badge {
+  padding: 0.4em 0.8em;
+  border-radius: 6px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  font-size: 0.75rem;
+}
+// Sidebar Menu Item Hover & Active State
+.list-group-item.active {
+  background-color: #eff6ff !important; // Biru sangat muda
+  border-right: 3px solid $primary !important;
+  color: $primary !important;
+}
+
+.list-group-item-action:hover {
+  background-color: #f8fafc;
+  color: $primary !important;
+}
+
+// Rapikan tombol aksi di tabel
+.table .btn-sm {
+  padding: 0.3rem 0.6rem;
+}
