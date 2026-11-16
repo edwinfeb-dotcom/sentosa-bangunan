@@ -6,7 +6,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h4 class="fw-bold mb-1" style="color: #1E293B;">Master Pelanggan</h4>
-        <p class="text-muted mb-0" style="font-size: 0.875rem;">Kelola data pelanggan reguler, toko, dan kontraktor.</p>
+        <p class="text-muted mb-0" style="font-size: 0.875rem;">Kelola data pelanggan, loyalitas (Bintang), dan Deposit.</p>
     </div>
     <a href="{{ route('master.customers.create') }}" class="btn btn-primary d-flex align-items-center gap-2">
         <i class="ph ph-plus"></i> Tambah Pelanggan
@@ -26,19 +26,21 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th width="5%">No</th>
-                        <th>Nama Pelanggan</th>
+                        <th class="ps-4">Nama Pelanggan</th>
                         <th>Tipe</th>
-                        <th>Telepon</th>
+                        <th>Bintang Gold</th>
+                        <th>Saldo Deposit</th>
                         <th>Status</th>
-                        <th width="15%" class="text-end">Aksi</th>
+                        <th class="text-end pe-4">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($customers as $index => $customer)
                     <tr>
-                        <td class="text-muted">{{ $customers->firstItem() + $index }}</td>
-                        <td class="fw-semibold" style="color: #1E293B;">{{ $customer->name }}</td>
+                        <td class="ps-4 fw-semibold" style="color: #1E293B;">
+                            {{ $customer->name }}
+                            <div class="text-muted fw-normal" style="font-size: 0.8rem;">{{ $customer->phone ?? '-' }}</div>
+                        </td>
                         <td>
                             @if($customer->type == 'kontraktor')
                                 <span class="badge bg-primary bg-opacity-10 text-primary">Kontraktor</span>
@@ -48,7 +50,12 @@
                                 <span class="badge bg-secondary bg-opacity-10 text-secondary">Reguler</span>
                             @endif
                         </td>
-                        <td>{{ $customer->phone ?? '-' }}</td>
+                        <td>
+                            <span class="badge bg-warning text-dark d-flex align-items-center gap-1" style="width: fit-content;">
+                                <i class="ph-fill ph-star text-warning"></i> {{ $customer->points }}
+                            </span>
+                        </td>
+                        <td class="fw-medium">Rp {{ number_format($customer->deposit_balance, 0, ',', '.') }}</td>
                         <td>
                             @if($customer->is_active)
                                 <span class="badge bg-success bg-opacity-10 text-success">Aktif</span>
@@ -56,7 +63,12 @@
                                 <span class="badge bg-danger bg-opacity-10 text-danger">Nonaktif</span>
                             @endif
                         </td>
-                        <td class="text-end">
+                        <td class="text-end pe-4">
+                            <!-- Tombol Top Up Deposit -->
+                            <button class="btn btn-sm btn-light border text-success" data-bs-toggle="modal" data-bs-target="#depositModal{{ $customer->id }}" title="Top Up Deposit">
+                                <i class="ph ph-wallet"></i>
+                            </button>
+                            
                             <a href="{{ route('master.customers.edit', $customer->id) }}" class="btn btn-sm btn-light border" title="Edit">
                                 <i class="ph ph-pencil-simple text-primary"></i>
                             </a>
@@ -69,6 +81,35 @@
                             </form>
                         </td>
                     </tr>
+
+                    <!-- Modal Top Up Deposit -->
+                    <div class="modal fade" id="depositModal{{ $customer->id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content border-0 shadow">
+                                <div class="modal-header">
+                                    <h5 class="modal-title fw-bold">Top Up Deposit: {{ $customer->name }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <form action="{{ route('master.customers.deposit', $customer->id) }}" method="POST">
+                                    @csrf
+                                    <div class="modal-body p-4">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-medium">Nominal Titipan (Rp)</label>
+                                            <input type="number" name="amount" class="form-control form-control-lg" required min="1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label fw-medium">Keterangan</label>
+                                            <input type="text" name="description" class="form-control" placeholder="Contoh: Titip uang belanja proyek">
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Batal</button>
+                                        <button type="submit" class="btn btn-success">Simpan Deposit</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                     @empty
                     <tr>
                         <td colspan="6" class="text-center py-5 text-muted">

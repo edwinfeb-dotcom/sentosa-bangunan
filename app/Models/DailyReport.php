@@ -11,6 +11,7 @@ class DailyReport extends Model
     protected $casts = [
         'report_data' => 'array', // Otomatis convert JSON ke Array
         'verified_at' => 'datetime',
+         'date' => 'date',
     ];
 
     public function user()

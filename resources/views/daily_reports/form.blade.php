@@ -15,7 +15,18 @@
             </div>
         </div>
 
-        <form action="{{ route('daily-reports.store') }}" method="POST" enctype="multipart/form-data">
+        <!-- Tampilkan Error Validasi Jika Ada yang Kosong -->
+        @if ($errors->any())
+            <div class="alert alert-danger mb-4">
+                <ul class="mb-0">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
+        <form action="{{ route('daily-reports.store') }}" method="POST" enctype="multipart/form-data" x-data="laporanKasir()">
             @csrf
             
             <div class="card mb-4 border-0 shadow-sm" style="background-color: #FFFBEB;">
@@ -25,7 +36,7 @@
                     </div>
                     <div class="flex-grow-1">
                         <label class="form-label fw-bold mb-1 text-warning-emphasis">Tanggal Laporan</label>
-                        <input type="date" class="form-control border-warning" name="date" value="{{ date('Y-m-d') }}" required>
+                        <input type="date" class="form-control border-warning" name="date" value="{{ old('date', date('Y-m-d')) }}">
                     </div>
                 </div>
             </div>
@@ -41,7 +52,7 @@
                     <div id="step1" class="accordion-collapse collapse show" data-bs-parent="#reportAccordion">
                         <div class="accordion-body">
                             <label class="form-label text-muted small">Kebersihan & Display</label>
-                            <textarea class="form-control" name="piket" rows="2" placeholder="Contoh: Menyapu lantai, merapikan display semen..." required></textarea>
+                            <textarea class="form-control" name="piket" rows="2" placeholder="Contoh: Menyapu lantai, merapikan display semen...">{{ old('piket') }}</textarea>
                         </div>
                     </div>
                 </div>
@@ -54,9 +65,27 @@
                         </button>
                     </h2>
                     <div id="step2" class="accordion-collapse collapse" data-bs-parent="#reportAccordion">
-                        <div class="accordion-body">
-                            <label class="form-label text-muted small">Input kas, pengeluaran, total transaksi</label>
-                            <textarea class="form-control" name="laporan_kasir" rows="2" placeholder="Contoh: Uang kecil 100rb, uang besar 500rb, total sistem 600rb..." required></textarea>
+                        <div class="accordion-body bg-light">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-medium">Uang Kecil</label>
+                                    <input type="number" class="form-control" name="uang_kecil" x-model.number="uangKecil" min="0" value="{{ old('uang_kecil', 0) }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-medium">Uang Besar</label>
+                                    <input type="number" class="form-control" name="uang_besar" x-model.number="uangBesar" min="0" value="{{ old('uang_besar', 0) }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-medium">Transfer</label>
+                                    <input type="number" class="form-control" name="transfer" x-model.number="transfer" min="0" value="{{ old('transfer', 0) }}">
+                                </div>
+                            </div>
+                            <div class="mt-3 p-3 bg-success bg-opacity-10 rounded border border-success border-opacity-25 d-flex justify-content-between align-items-center">
+                                <span class="fw-bold text-success">Total Kasir (Otomatis):</span>
+                                <span class="fs-5 fw-bold text-success" x-text="'Rp ' + formatRupiah(totalKasir)"></span>
+                                <!-- Hidden input untuk dikirim ke backend -->
+                                <input type="hidden" name="total_kasir" x-model="totalKasir">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -71,7 +100,7 @@
                     <div id="step3" class="accordion-collapse collapse" data-bs-parent="#reportAccordion">
                         <div class="accordion-body">
                             <label class="form-label text-muted small">Pesanan, penerimaan, nota dari supplier</label>
-                            <textarea class="form-control" name="barang_datang" rows="2" placeholder="Contoh: Semen 3 Roda datang 50 sak dari PT ABC..." required></textarea>
+                            <textarea class="form-control" name="barang_datang" rows="2" placeholder="Contoh: Semen 3 Roda datang 50 sak dari PT ABC...">{{ old('barang_datang') }}</textarea>
                         </div>
                     </div>
                 </div>
@@ -86,7 +115,7 @@
                     <div id="step4" class="accordion-collapse collapse" data-bs-parent="#reportAccordion">
                         <div class="accordion-body">
                             <label class="form-label text-muted small">Kendaraan dan aset yang perlu dicek</label>
-                            <textarea class="form-control" name="cek_aset" rows="2" placeholder="Contoh: Kendaraan aman, komputer kasir menyala normal..." required></textarea>
+                            <textarea class="form-control" name="cek_aset" rows="2" placeholder="Contoh: Kendaraan aman, komputer kasir menyala normal...">{{ old('cek_aset') }}</textarea>
                         </div>
                     </div>
                 </div>
@@ -101,7 +130,7 @@
                     <div id="step5" class="accordion-collapse collapse" data-bs-parent="#reportAccordion">
                         <div class="accordion-body">
                             <label class="form-label text-muted small">Jam masuk, pulang, retase dan pinjaman</label>
-                            <textarea class="form-control" name="absensi" rows="2" placeholder="Contoh: Hadir 4 orang, Lembur 1 jam..." required></textarea>
+                            <textarea class="form-control" name="absensi" rows="2" placeholder="Contoh: Hadir 4 orang, Lembur 1 jam...">{{ old('absensi') }}</textarea>
                         </div>
                     </div>
                 </div>
@@ -110,13 +139,25 @@
                 <div class="accordion-item border-0 shadow-sm mb-2 rounded">
                     <h2 class="accordion-header">
                         <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#step6">
-                            <i class="ph ph-camera me-2 text-secondary"></i> 6. Dokumentasi Sore
+                            <i class="ph ph-camera me-2 text-secondary"></i> 6. Dokumentasi Sore (Maks 3 Foto)
                         </button>
                     </h2>
                     <div id="step6" class="accordion-collapse collapse" data-bs-parent="#reportAccordion">
                         <div class="accordion-body">
-                            <label class="form-label text-muted small">Maksimal tiga foto beserta keterangannya</label>
-                            <input type="file" class="form-control" name="foto" accept="image/*">
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <label class="form-label text-muted small">Foto 1</label>
+                                    <input type="file" class="form-control form-control-sm" name="foto1" accept="image/*">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label text-muted small">Foto 2</label>
+                                    <input type="file" class="form-control form-control-sm" name="foto2" accept="image/*">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label text-muted small">Foto 3</label>
+                                    <input type="file" class="form-control form-control-sm" name="foto3" accept="image/*">
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -131,7 +172,7 @@
                     <div id="step7" class="accordion-collapse collapse" data-bs-parent="#reportAccordion">
                         <div class="accordion-body">
                             <label class="form-label text-muted small">Standar penutupan toko dan catatan verify jika tidak</label>
-                            <textarea class="form-control" name="ceklis_sore" rows="2" placeholder="Contoh: Pintu sudah dikunci, stok display dicek aman..." required></textarea>
+                            <textarea class="form-control" name="ceklis_sore" rows="2" placeholder="Contoh: Pintu sudah dikunci, stok display dicek aman...">{{ old('ceklis_sore') }}</textarea>
                         </div>
                     </div>
                 </div>
@@ -151,4 +192,22 @@
         </form>
     </div>
 </div>
+
+@push('scripts')
+<script>
+    function laporanKasir() {
+        return {
+            uangKecil: {{ old('uang_kecil', 0) }},
+            uangBesar: {{ old('uang_besar', 0) }},
+            transfer: {{ old('transfer', 0) }},
+            get totalKasir() {
+                return this.uangKecil + this.uangBesar + this.transfer;
+            },
+            formatRupiah(value) {
+                return new Intl.NumberFormat('id-ID').format(value);
+            }
+        }
+    }
+</script>
+@endpush
 @endsection

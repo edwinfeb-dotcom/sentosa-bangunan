@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\DailyReport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use App\Exports\DailyReportsExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class DailyReportController extends Controller
 {
@@ -24,35 +26,48 @@ class DailyReportController extends Controller
         $request->validate([
             'date' => 'required|date',
             'piket' => 'required|string',
-            'laporan_kasir' => 'required|string',
+            'uang_kecil' => 'required|numeric|min:0',
+            'uang_besar' => 'required|numeric|min:0',
+            'transfer' => 'required|numeric|min:0',
+            'total_kasir' => 'required|numeric', // Hasil hitungan otomatis
             'barang_datang' => 'required|string',
             'cek_aset' => 'required|string',
             'absensi' => 'required|string',
-            'foto' => 'nullable|image|max:2048',
+            'foto1' => 'nullable|image|max:2048',
+            'foto2' => 'nullable|image|max:2048',
+            'foto3' => 'nullable|image|max:2048',
             'ceklis_sore' => 'required|string',
         ]);
 
-        // Upload foto jika ada
-        $fotoPath = null;
-        if ($request->hasFile('foto')) {
-            $fotoPath = $request->file('foto')->store('reports', 'public');
+        // Upload maksimal 3 foto
+        $fotoPaths = [];
+        for ($i = 1; $i <= 3; $i++) {
+            $field = 'foto' . $i;
+            if ($request->hasFile($field)) {
+                $fotoPaths[$field] = $request->file($field)->store('reports', 'public');
+            }
         }
 
         // Kumpulkan data menjadi Array JSON
         $reportData = [
             'piket' => $request->piket,
-            'laporan_kasir' => $request->laporan_kasir,
+            'laporan_kasir' => [
+                'uang_kecil' => $request->uang_kecil,
+                'uang_besar' => $request->uang_besar,
+                'transfer' => $request->transfer,
+                'total_kasir' => $request->total_kasir,
+            ],
             'barang_datang' => $request->barang_datang,
             'cek_aset' => $request->cek_aset,
             'absensi' => $request->absensi,
-            'foto_path' => $fotoPath,
+            'foto' => $fotoPaths, // Simpan array path foto
             'ceklis_sore' => $request->ceklis_sore,
         ];
 
         DailyReport::create([
             'user_id' => auth()->id(),
             'date' => $request->date,
-            'verification_code' => strtoupper(Str::random(8)), // Generate kode unik
+            'verification_code' => strtoupper(Str::random(8)),
             'report_data' => $reportData,
         ]);
 
@@ -75,5 +90,10 @@ class DailyReportController extends Controller
         ]);
 
         return back()->with('success', 'Laporan berhasil diverifikasi.');
+    }
+
+    public function export()
+    {
+        return Excel::download(new DailyReportsExport, 'Laporan_Harian_' . date('Y-m-d') . '.xlsx');
     }
 }

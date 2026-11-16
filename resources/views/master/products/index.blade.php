@@ -8,7 +8,11 @@
         <h4 class="fw-bold mb-1" style="color: #1E293B;">Master Produk</h4>
         <p class="text-muted mb-0" style="font-size: 0.875rem;">Kelola daftar produk, harga, dan stok barang.</p>
     </div>
+    <!-- TOMBOL AKSI YANG SUDAH DIPERBAIKI -->
     <div class="d-flex gap-2">
+        <a href="{{ route('master.products.barcode') }}" class="btn btn-outline-dark d-flex align-items-center gap-2">
+            <i class="ph ph-barcode"></i> Cetak Label
+        </a>
         <button type="button" class="btn btn-outline-success d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#importModal">
             <i class="ph ph-upload-simple"></i> Import Excel
         </button>

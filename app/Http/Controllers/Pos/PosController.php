@@ -14,6 +14,7 @@ use App\Models\EmployeeDebt;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Models\Customer;
 
 class PosController extends Controller
 {
@@ -41,8 +42,10 @@ class PosController extends Controller
         // AMBIL DATA KARYAWAN YANG PUNYA DISKON (DIPINDAHKAN KE SINI)
         $employees = User::where('role', 'karyawan')->where('employee_discount', '>', 0)->get();
 
-        // HANYA ADA SATU RETURN DI SINI
-        return view('pos.index', compact('products', 'session', 'idempotencyKey', 'cashSales', 'expectedCash', 'employees'));
+        // AMBIL DATA PELANGGAN UNTUK LOYALTY
+        $customers = Customer::where('is_active', true)->get();
+
+        return view('pos.index', compact('products', 'session', 'idempotencyKey', 'cashSales', 'expectedCash', 'employees', 'customers'));
     }
 
     public function store(Request $request)
@@ -55,6 +58,7 @@ class PosController extends Controller
             'payment_method' => 'required|in:cash,transfer,employee_debt',
             'paid_amount' => 'required|numeric|min:0',
             'employee_id' => 'nullable|exists:users,id',
+            'customer_id' => 'nullable|exists:customers,id',
         ]);
 
         // BR-08: Cek Idempotency (Cegah double submit)
@@ -128,6 +132,15 @@ class PosController extends Controller
                     'total_amount' => $totalAmount,
                     'discount_amount' => $discountAmount
                 ]);
+
+                if ($request->customer_id) {
+                    $customer = Customer::find($request->customer_id);
+                    if ($customer) {
+                        // Contoh aturan: Rp 50.000 = 1 Bintang
+                        $pointsEarned = floor($totalAmount / 50000); 
+                        $customer->increment('points', $pointsEarned);
+                    }
+                }
 
                 // 4. Simpan Pembayaran
                 $sale->payments()->create([

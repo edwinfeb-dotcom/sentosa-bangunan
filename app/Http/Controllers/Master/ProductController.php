@@ -102,4 +102,10 @@ class ProductController extends Controller
             return redirect()->route('master.products.index')->with('error', 'Terjadi kesalahan saat import: ' . $e->getMessage());
         }
     }
+
+    public function barcodeIndex()
+    {
+        $products = Product::where('is_active', true)->get();
+        return view('master.products.barcode', compact('products'));
+    }
 }

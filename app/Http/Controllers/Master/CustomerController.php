@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Master;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use Illuminate\Http\Request;
+use App\Models\DepositLedger;
+use Illuminate\Support\Facades\DB;
 
 class CustomerController extends Controller
 {
@@ -68,5 +70,29 @@ class CustomerController extends Controller
     {
         $customer->delete();
         return redirect()->route('master.customers.index')->with('success', 'Pelanggan berhasil dihapus.');
+    }
+
+        public function addDeposit(Request $request, Customer $customer)
+    {
+        $request->validate([
+            'amount' => 'required|numeric|min:1',
+            'description' => 'nullable|string|max:255',
+        ]);
+
+        DB::transaction(function () use ($request, $customer) {
+            // 1. Tambah saldo pelanggan
+            $customer->increment('deposit_balance', $request->amount);
+
+            // 2. Catat ke buku besar deposit
+            DepositLedger::create([
+                'customer_id' => $customer->id,
+                'user_id' => auth()->id(),
+                'type' => 'in',
+                'amount' => $request->amount,
+                'description' => $request->description ?? 'Top Up Deposit',
+            ]);
+        });
+
+        return back()->with('success', 'Saldo deposit berhasil ditambahkan.');
     }
 }

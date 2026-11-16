@@ -84,6 +84,21 @@
             <!-- Area Pembayaran -->
             <div class="card-footer bg-white border-top p-3">
                 
+                <!-- FITUR PELANGGAN (LOYALTY) -->
+                <div class="mb-2">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light border-end-0"><i class="ph ph-user-circle"></i></span>
+                        <select class="form-select border-start-0 bg-light" x-model="selectedCustomer">
+                            <option value="">Pelanggan Umum (Tanpa Poin)</option>
+                            @foreach($customers as $cust)
+                                <option value="{{ $cust->id }}">
+                                    {{ $cust->name }} (Poin: {{ $cust->points }})
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+
                 <!-- Fitur Diskon Karyawan -->
                 <div class="mb-3">
                     <div class="input-group input-group-sm">
@@ -198,7 +213,6 @@
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(30, 58, 138, 0.1) !important;
     }
-    /* Menghilangkan panah pada input number */
     input[type=number]::-webkit-inner-spin-button, 
     input[type=number]::-webkit-outer-spin-button { 
         -webkit-appearance: none; 
@@ -221,7 +235,10 @@
             paidAmount: 0,
             isProcessing: false,
             idempotencyKey: '{{ $idempotencyKey }}',
+            
+            // Variabel Diskon & Loyalty
             selectedEmployee: '',
+            selectedCustomer: '', // <-- Tambahan untuk Pelanggan
             discountAmount: 0,
 
             get filteredProducts() {
@@ -255,7 +272,7 @@
                         qty: 1
                     });
                 }
-                this.search = ''; // Reset search
+                this.search = ''; 
                 this.calculateTotal();
             },
             addFirstResult() {
@@ -307,7 +324,8 @@
                             items: this.cart.map(item => ({ product_id: item.id, qty: item.qty })),
                             payment_method: this.paymentMethod,
                             paid_amount: this.paymentMethod === 'employee_debt' ? this.grandTotal : this.paidAmount,
-                            employee_id: this.selectedEmployee
+                            employee_id: this.selectedEmployee,
+                            customer_id: this.selectedCustomer // <-- Tambahan kirim ID pelanggan
                         })
                     });
 

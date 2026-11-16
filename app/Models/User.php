@@ -18,13 +18,10 @@ class User extends Authenticatable
      * @var array<int, string>
      */
      protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'role',
-        'employee_discount',
-        'employee_debt',
-        'daily_salary'
+        'name', 'email', 'password', 'role', 'employee_discount', 
+        'employee_debt', 'daily_salary', 'photo', 'birth_date', 
+        'birth_place', 'origin', 'address', 'phone', 'join_date', 
+        'resign_date', 'employee_status', 'employee_category'
     ];
 
     /**
@@ -47,5 +44,8 @@ class User extends Authenticatable
         'password' => 'hashed',
         'employee_discount' => 'decimal:2',
         'employee_debt' => 'decimal:2',
+        'birth_date' => 'date',
+        'join_date' => 'date',
+        'resign_date' => 'date',
     ];
 }

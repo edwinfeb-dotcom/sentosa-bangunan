@@ -8,9 +8,16 @@
         <h4 class="fw-bold mb-1" style="color: #1E293B;">Laporan Harian</h4>
         <p class="text-muted mb-0" style="font-size: 0.875rem;">Laporan operasional toko yang dikirim oleh kasir/admin.</p>
     </div>
-    <a href="{{ route('daily-reports.create') }}" class="btn btn-primary d-flex align-items-center gap-2">
-        <i class="ph ph-plus"></i> Buat Laporan
-    </a>
+    
+    <!-- TOMBOL AKSI (Sudah ditambahkan Export Excel) -->
+    <div class="d-flex gap-2">
+        <a href="{{ route('daily-reports.export') }}" class="btn btn-outline-success d-flex align-items-center gap-2">
+            <i class="ph ph-file-xls"></i> Export Excel
+        </a>
+        <a href="{{ route('daily-reports.create') }}" class="btn btn-primary d-flex align-items-center gap-2">
+            <i class="ph ph-plus"></i> Buat Laporan
+        </a>
+    </div>
 </div>
 
 @if(session('success'))
@@ -26,23 +33,23 @@
     </div>
 @endif
 
-<div class="card">
+<div class="card border-0 shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table">
                 <thead>
                     <tr>
-                        <th>Tanggal</th>
+                        <th class="ps-4">Tanggal</th>
                         <th>Petugas</th>
                         <th>Kode Verifikasi</th>
                         <th>Status</th>
-                        <th class="text-end">Aksi / Verifikasi</th>
+                        <th class="text-end pe-4">Aksi / Verifikasi</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($reports as $report)
                     <tr>
-                        <td class="fw-semibold" style="color: #1E293B;">{{ \Carbon\Carbon::parse($report->date)->format('d/m/Y') }}</td>
+                        <td class="ps-4 fw-semibold" style="color: #1E293B;">{{ \Carbon\Carbon::parse($report->date)->format('d/m/Y') }}</td>
                         <td>{{ $report->user->name }}</td>
                         <td>
                             <span class="badge bg-secondary font-monospace fs-6 rounded">{{ $report->verification_code }}</span>
@@ -54,7 +61,7 @@
                                 <span class="badge bg-warning bg-opacity-10 text-warning">Menunggu Verifikasi</span>
                             @endif
                         </td>
-                        <td class="text-end">
+                        <td class="text-end pe-4">
                             @if($report->status === 'submitted' && in_array(auth()->user()->role, ['admin', 'owner']))
                                 <!-- Form Verifikasi Inline -->
                                 <form action="{{ route('daily-reports.verify', $report->id) }}" method="POST" class="d-flex gap-2 justify-content-end">

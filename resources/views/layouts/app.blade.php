@@ -48,14 +48,32 @@
                 <a href="{{ route('hr.attendance.index') }}" class="list-group-item list-group-item-action border-0 px-4 py-2 {{ request()->routeIs('hr.*') ? 'active text-primary fw-bold' : 'text-secondary' }}">
                     <i class="ph ph-clock me-2 fs-5 align-middle"></i> Absensi
                 </a>
+
+                <a href="{{ route('hr.employees.index') }}" class="list-group-item list-group-item-action border-0 px-4 py-2 {{ request()->routeIs('hr.employees.*') ? 'active text-primary fw-bold' : 'text-secondary' }}">
+                    <i class="ph ph-identification-card me-2 fs-5 align-middle"></i> Data Karyawan
+                </a>
                 <a href="{{ route('hr.payroll.index') }}" class="list-group-item list-group-item-action border-0 px-4 py-2 {{ request()->routeIs('hr.payroll.*') ? 'active text-primary fw-bold' : 'text-secondary' }}">
                     <i class="ph ph-money me-2 fs-5 align-middle"></i> Payroll
                 </a>
                 <a href="{{ route('fleet.vehicles.index') }}" class="list-group-item list-group-item-action border-0 px-4 py-2 {{ request()->routeIs('fleet.*') ? 'active text-primary fw-bold' : 'text-secondary' }}">
                     <i class="ph ph-truck me-2 fs-5 align-middle"></i> Armada
                 </a>
+
+                <a href="{{ route('fleet.jobs.index') }}" class="list-group-item list-group-item-action border-0 px-4 py-2 {{ request()->routeIs('fleet.jobs.*') ? 'active text-primary fw-bold' : 'text-secondary' }}">
+                    <i class="ph ph-map-pin me-2 fs-5 align-middle"></i> Perjalanan Armada
+                </a>
                 <a href="{{ route('project.projects.index') }}" class="list-group-item list-group-item-action border-0 px-4 py-2 {{ request()->routeIs('project.*') ? 'active text-primary fw-bold' : 'text-secondary' }}">
                     <i class="ph ph-briefcase me-2 fs-5 align-middle"></i> Proyek
+                </a>
+
+                @if(auth()->user()->role === 'owner')
+                <a href="{{ route('setting.access.index') }}" class="list-group-item list-group-item-action border-0 px-4 py-2 {{ request()->routeIs('setting.access.*') ? 'active text-primary fw-bold' : 'text-secondary' }}">
+                    <i class="ph ph-shield-check me-2 fs-5 align-middle"></i> Akses & Sandi
+                </a>
+                @endif
+
+                <a href="{{ route('setting.backup.index') }}" class="list-group-item list-group-item-action border-0 px-4 py-2 {{ request()->routeIs('setting.backup.*') ? 'active text-primary fw-bold' : 'text-secondary' }}">
+                    <i class="ph ph-cloud-arrow-down me-2 fs-5 align-middle"></i> Backup & Export
                 </a>
             </div>
         </div>
