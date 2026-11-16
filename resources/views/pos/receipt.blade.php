@@ -5,10 +5,12 @@
 @section('content')
 <div class="row justify-content-center">
     <div class="col-md-5">
-        <div class="card">
+        <div class="card border-0 shadow-sm">
             <div class="card-body p-4">
                 <div class="text-center mb-4">
-                    <h4 class="fw-bold mb-0">Sentosa Bangunan</h4>
+                    <!-- LOGO DI SINI -->
+                    <img src="{{ asset('images/logo.png') }}" alt="Logo Sentosa" style="height: 50px; object-fit: contain;" class="mb-2">
+                    <h5 class="fw-bold mb-0">Sentosa Bangunan</h5>
                     <small class="text-muted">Jl. Raya Pontianak (Contoh Alamat)</small>
                     <hr>
                 </div>

@@ -15,6 +15,8 @@
         <div class="card border-0 shadow-sm">
             <div class="card-body p-5">
                 <div class="text-center mb-4 pb-4 border-bottom">
+                    <!-- LOGO DI SINI -->
+                    <img src="{{ asset('images/logo.png') }}" alt="Logo Sentosa" style="height: 60px; object-fit: contain;" class="mb-3">
                     <h4 class="fw-bold mb-1" style="color: #1E293B;">SENTOSA BANGUNAN</h4>
                     <p class="text-muted mb-0" style="font-size: 0.9rem;">Slip Gaji Karyawan</p>
                 </div>

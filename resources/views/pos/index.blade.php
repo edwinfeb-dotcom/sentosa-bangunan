@@ -29,12 +29,23 @@
                     <template x-for="product in filteredProducts" :key="product.id">
                         <div class="col-6 col-md-4">
                             <div class="card h-100 border product-card" @click="addToCart(product)" style="cursor: pointer;">
-                                <div class="card-body p-3 d-flex flex-column justify-content-between">
-                                    <div>
-                                        <h6 class="fw-bold mb-1 text-dark" style="font-size: 0.85rem; line-height: 1.3;" x-text="product.name"></h6>
-                                        <small class="text-muted d-block mb-2" style="font-size: 0.75rem;" x-text="'Sisa Stok: ' + product.current_stock + ' ' + product.unit"></small>
+                                <div class="card-body p-2 d-flex flex-column text-center">
+                                    
+                                    <!-- GAMBAR PRODUK -->
+                                    <template x-if="product.image">
+                                        <img :src="'/storage/' + product.image" alt="Produk" class="img-fluid rounded mb-2 object-fit-cover w-100" style="height: 70px;">
+                                    </template>
+                                    <template x-if="!product.image">
+                                        <div class="bg-light rounded mb-2 d-flex align-items-center justify-content-center w-100" style="height: 70px;">
+                                            <i class="ph ph-image text-muted fs-2"></i>
+                                        </div>
+                                    </template>
+                                    
+                                    <div class="flex-grow-1 d-flex flex-column justify-content-between mt-1">
+                                        <h6 class="fw-bold mb-1 text-dark" style="font-size: 0.8rem; line-height: 1.2;" x-text="product.name"></h6>
+                                        <small class="text-muted d-block mb-2" style="font-size: 0.7rem;" x-text="'Stok: ' + product.current_stock + ' ' + product.unit"></small>
+                                        <div class="fw-bold text-primary" style="font-size: 0.9rem;" x-text="'Rp ' + formatRupiah(product.selling_price)"></div>
                                     </div>
-                                    <div class="fw-bold text-primary" style="font-size: 1rem;" x-text="'Rp ' + formatRupiah(product.selling_price)"></div>
                                 </div>
                             </div>
                         </div>
@@ -235,10 +246,8 @@
             paidAmount: 0,
             isProcessing: false,
             idempotencyKey: '{{ $idempotencyKey }}',
-            
-            // Variabel Diskon & Loyalty
             selectedEmployee: '',
-            selectedCustomer: '', // <-- Tambahan untuk Pelanggan
+            selectedCustomer: '',
             discountAmount: 0,
 
             get filteredProducts() {
@@ -325,7 +334,7 @@
                             payment_method: this.paymentMethod,
                             paid_amount: this.paymentMethod === 'employee_debt' ? this.grandTotal : this.paidAmount,
                             employee_id: this.selectedEmployee,
-                            customer_id: this.selectedCustomer // <-- Tambahan kirim ID pelanggan
+                            customer_id: this.selectedCustomer
                         })
                     });
 

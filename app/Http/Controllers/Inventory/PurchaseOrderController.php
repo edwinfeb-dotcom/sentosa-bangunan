@@ -80,7 +80,7 @@ class PurchaseOrderController extends Controller
         }
     }
 
-        public function receive(PurchaseOrder $po)
+    public function receive(PurchaseOrder $po)
     {
         // Pastikan statusnya masih ordered
         if ($po->status !== 'ordered') {
@@ -110,6 +110,15 @@ class PurchaseOrderController extends Controller
                         'description' => 'Penerimaan barang PO: ' . $po->po_number,
                     ]);
                 }
+                // OTOMATIS BUAT NOTA SUPPLIER (HUTANG)
+                \App\Models\SupplierInvoice::create([
+                    'supplier_id' => $po->supplier_id,
+                    'purchase_order_id' => $po->id,
+                    'invoice_number' => 'INV-' . $po->po_number,
+                    'total_amount' => $po->total_amount,
+                    'paid_amount' => 0,
+                    'status' => 'unpaid',
+                ]);
 
                 // Ubah status PO menjadi received
                 $po->update(['status' => 'received']);

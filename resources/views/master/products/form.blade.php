@@ -16,7 +16,8 @@
 
         <div class="card">
             <div class="card-body p-4">
-                <form action="{{ isset($product) ? route('master.products.update', $product->id) : route('master.products.store') }}" method="POST">
+                <!-- TAMBAHKAN enctype multipart/form-data -->
+                <form action="{{ isset($product) ? route('master.products.update', $product->id) : route('master.products.store') }}" method="POST" enctype="multipart/form-data">
                     @csrf
                     @if(isset($product))
                         @method('PUT')
@@ -58,6 +59,25 @@
                     </div>
 
                     <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-medium">Gambar Produk (Max 2MB)</label>
+                            <input type="file" class="form-control @error('image') is-invalid @enderror" name="image" accept="image/*">
+                            @error('image') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            @if(isset($product) && $product->image)
+                                <div class="mt-2">
+                                    <img src="{{ asset('storage/' . $product->image) }}" alt="Gambar Produk" class="rounded border" style="height: 60px;">
+                                </div>
+                            @endif
+                        </div>
+
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-medium">Deskripsi Singkat (Untuk Katalog)</label>
+                            <textarea class="form-control @error('description') is-invalid @enderror" name="description" rows="2" placeholder="Kegunaan, ukuran, merek, dll...">{{ old('description', $product->description ?? '') }}</textarea>
+                            @error('description') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                    </div>
+
+                    <div class="row">
                         <div class="col-md-4 mb-4">
                             <label for="purchase_price" class="form-label fw-medium">Harga Beli (HPP)</label>
                             <div class="input-group">
@@ -86,7 +106,7 @@
                     <div class="mb-4">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" role="switch" id="is_active" name="is_active" value="1" {{ old('is_active', $product->is_active ?? true) ? 'checked' : '' }}>
-                            <label class="form-check-label ms-2" for="is_active">Status Produk Aktif</label>
+                            <label class="form-check-label ms-2" for="is_active">Status Produk Aktif (Tampil di Kasir)</label>
                         </div>
                     </div>
 

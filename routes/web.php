@@ -16,6 +16,12 @@ Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [LoginController::class, 'login']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
+Route::get('/katalog', [\App\Http\Controllers\PublicCatalogController::class, 'index'])->name('catalog.index');
+
+Route::get('/katalog/checkout', [\App\Http\Controllers\PublicCatalogController::class, 'checkoutForm'])->name('catalog.checkout');
+Route::post('/katalog/checkout', [\App\Http\Controllers\PublicCatalogController::class, 'storeOrder'])->name('catalog.store-order');
+Route::get('/katalog/sukses/{order_code}', [\App\Http\Controllers\PublicCatalogController::class, 'success'])->name('catalog.success');
+
 Route::middleware('auth')->group(function () {
     
     Route::get('/dashboard', [\App\Http\Controllers\ControlCenterController::class, 'index'])->name('dashboard');
@@ -38,6 +44,8 @@ Route::middleware('auth')->group(function () {
         
         // INI ROUTE YANG TADI HILANG
         Route::post('po/{po}/receive', [PurchaseOrderController::class, 'receive'])->name('po.receive');
+        Route::get('/supplier-invoices', [\App\Http\Controllers\Inventory\SupplierInvoiceController::class, 'index'])->name('invoices.index');
+        Route::post('/supplier-invoices/{invoice}/pay', [\App\Http\Controllers\Inventory\SupplierInvoiceController::class, 'pay'])->name('invoices.pay');
     });
 
         // --- POS & KASIR ---
@@ -89,5 +97,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/backup', [\App\Http\Controllers\Setting\BackupController::class, 'index'])->name('backup.index');
         Route::get('/backup/export-reports', [\App\Http\Controllers\Setting\BackupController::class, 'exportReports'])->name('backup.export-reports');
     });
+
+        // --- PESANAN ONLINE ---
+    Route::get('/public-orders', [\App\Http\Controllers\PublicOrderController::class, 'index'])->name('public-orders.index');
+    Route::post('/public-orders/{order}/process', [\App\Http\Controllers\PublicOrderController::class, 'process'])->name('public-orders.process');
 
 });

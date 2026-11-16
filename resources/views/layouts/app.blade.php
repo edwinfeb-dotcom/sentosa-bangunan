@@ -10,11 +10,12 @@
     <div class="d-flex" id="wrapper" style="min-height: 100vh;">
         <!-- SIDEBAR -->
         <div id="sidebar-wrapper" style="width: 260px; flex-shrink: 0; background-color: #ffffff; border-right: 1px solid #E2E8F0;">
-            <div class="sidebar-heading p-4 fw-bold fs-5 d-flex align-items-center border-bottom">
-                <div class="bg-primary text-white rounded p-1 me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                    <i class="ph ph-buildings"></i>
-                </div>
-                SENTOSA
+                       <div class="sidebar-heading px-3 py-3 border-bottom d-flex align-items-center" style="height: 75px;">
+                <!-- Gambar Logo diperbesar -->
+                <img src="{{ asset('images/logo.png') }}" alt="Logo Sentosa" style="height: 50px; width: auto; object-fit: contain;" class="me-3">
+                
+                <!-- Tulisan Sentosa Bangunan -->
+                <span class="fw-bold fs-4" style="color: #1E3A8A; letter-spacing: -0.5px; line-height: 1.1;">Sentosa<br>Bangunan</span>
             </div>
             
             <div class="list-group list-group-flush py-3">
@@ -36,8 +37,16 @@
                 <a href="{{ route('inventory.po.index') }}" class="list-group-item list-group-item-action border-0 px-4 py-2 {{ request()->routeIs('inventory.*') ? 'active text-primary fw-bold' : 'text-secondary' }}">
                     <i class="ph ph-shopping-cart me-2 fs-5 align-middle"></i> Purchase Order
                 </a>
+
+                <a href="{{ route('inventory.invoices.index') }}" class="list-group-item list-group-item-action border-0 px-4 py-2 {{ request()->routeIs('inventory.invoices.*') ? 'active text-primary fw-bold' : 'text-secondary' }}">
+                    <i class="ph ph-receipt me-2 fs-5 align-middle"></i> Nota Supplier (Bon)
+                </a>
                 <a href="{{ route('pos.session.index') }}" class="list-group-item list-group-item-action border-0 px-4 py-2 {{ request()->routeIs('pos.*') ? 'active text-primary fw-bold' : 'text-secondary' }}">
                     <i class="ph ph-desktop me-2 fs-5 align-middle"></i> Kasir (POS)
+                </a>
+
+                <a href="{{ route('public-orders.index') }}" class="list-group-item list-group-item-action border-0 px-4 py-2 {{ request()->routeIs('public-orders.*') ? 'active text-primary fw-bold' : 'text-secondary' }}">
+                    <i class="ph ph-globe me-2 fs-5 align-middle"></i> Pesanan Online
                 </a>
                 <a href="{{ route('finance.cash-ledger.index') }}" class="list-group-item list-group-item-action border-0 px-4 py-2 {{ request()->routeIs('finance.*') ? 'active text-primary fw-bold' : 'text-secondary' }}">
                     <i class="ph ph-wallet me-2 fs-5 align-middle"></i> Buku Kas

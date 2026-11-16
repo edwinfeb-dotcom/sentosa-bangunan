@@ -12,7 +12,9 @@
             <div class="col-md-4">
                 <div class="card shadow-sm border-0">
                     <div class="card-body p-4">
-                        <h4 class="text-center mb-4 fw-bold" style="color: #1E3A8A;">Sentosa Bangunan</h4>
+                        <div class="text-center mb-4">
+    <img src="{{ asset('images/logo.png') }}" alt="Logo Sentosa" style="height: 80px; max-width: 100%; object-fit: contain;">
+</div>
                         <form method="POST" action="{{ route('login') }}">
                             @csrf
                             <div class="mb-3">
