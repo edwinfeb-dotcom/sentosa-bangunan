@@ -3,12 +3,12 @@
 @section('title', 'Armada Kendaraan')
 
 @section('content')
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-header">
     <div>
-        <h4 class="fw-bold mb-1" style="color: #1E293B;">Armada Kendaraan</h4>
-        <p class="text-muted mb-0" style="font-size: 0.875rem;">Kelola data kendaraan operasional, komersial, dan vendor.</p>
+        <h2 class="page-title">Armada Kendaraan</h2>
+        <p class="page-subtitle">Kelola data kendaraan operasional, komersial, dan vendor.</p>
     </div>
-    <a href="{{ route('fleet.vehicles.create') }}" class="btn btn-primary d-flex align-items-center gap-2">
+    <a href="{{ route('fleet.vehicles.create') }}" class="btn btn-primary">
         <i class="ph ph-plus"></i> Tambah Kendaraan
     </a>
 </div>

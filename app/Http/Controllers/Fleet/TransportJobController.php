@@ -3,28 +3,66 @@
 namespace App\Http\Controllers\Fleet;
 
 use App\Http\Controllers\Controller;
+use App\Models\PublicOrder;
 use App\Models\TransportJob;
-use App\Models\Vehicle;
 use App\Models\User;
+use App\Models\Vehicle;
 use Illuminate\Http\Request;
 
 class TransportJobController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $jobs = TransportJob::with(['vehicle', 'driver'])->latest()->paginate(10);
-        return view('fleet.jobs.index', compact('jobs'));
+        $query = TransportJob::with(['vehicle', 'driver'])->latest();
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->filled('vehicle_id')) {
+            $query->where('vehicle_id', $request->vehicle_id);
+        }
+        if ($request->filled('driver_id')) {
+            $query->where('driver_id', $request->driver_id);
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('departure_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('departure_date', '<=', $request->date_to);
+        }
+
+        $summaryQuery = clone $query;
+        $totalRevenue = (float) $summaryQuery->sum('revenue');
+        $totalOperational = (float) (clone $query)->sum('operational_cost');
+        $totalCommission = (float) (clone $query)->sum('driver_commission');
+        $activeTrips = (int) (clone $query)->where('status', 'on_trip')->count();
+
+        $summary = [
+            'active_trips' => $activeTrips,
+            'total_revenue' => $totalRevenue,
+            'total_operational' => $totalOperational,
+            'total_commission' => $totalCommission,
+            'net_profit' => $totalRevenue - $totalOperational - $totalCommission,
+        ];
+
+        $jobs = $query->paginate(10)->withQueryString();
+        $vehicles = Vehicle::orderBy('plate_number')->get();
+        $drivers = User::where('role', 'driver')->orderBy('name')->get();
+
+        return view('fleet.jobs.index', compact('jobs', 'summary', 'vehicles', 'drivers'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
-        // Hanya bisa pilih kendaraan yang aktif
         $vehicles = Vehicle::where('is_active', true)->get();
-        
-        // PERBAIKAN: Gunakan employee_status = 'aktif' untuk user
         $drivers = User::where('role', 'driver')->where('employee_status', 'aktif')->get();
-        
-        return view('fleet.jobs.form', compact('vehicles', 'drivers'));
+
+        $prefillOrder = null;
+        if ($request->filled('order_id')) {
+            $prefillOrder = PublicOrder::find($request->order_id);
+        }
+
+        return view('fleet.jobs.form', compact('vehicles', 'drivers', 'prefillOrder'));
     }
 
     public function store(Request $request)
@@ -38,11 +76,9 @@ class TransportJobController extends Controller
             'operational_cost' => 'nullable|numeric|min:0',
         ]);
 
-        // Hitung komisi driver (Misal 10% dari pendapatan)
         $revenue = $request->revenue ?? 0;
-        $commission = $revenue * 0.10; 
+        $commission = $revenue * 0.10;
 
-        // Format checklist dari form
         $checklist = [
             'ban' => $request->has('cek_ban'),
             'dongkrak' => $request->has('cek_dongkrak'),
@@ -68,7 +104,6 @@ class TransportJobController extends Controller
 
     public function complete(TransportJob $job)
     {
-        // Fitur saat driver sudah kembali ke toko
         $job->update([
             'status' => 'completed',
             'return_date' => now(),

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Customer;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -20,14 +21,40 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($users as $user) {
-            User::create([
-                'name' => $user['name'],
-                'email' => $user['email'],
-                'password' => Hash::make('password'),
-                'role' => $user['role'],
-                'employee_discount' => $user['role'] === 'karyawan' ? 10.00 : 0,
-                'employee_debt' => 0,
-            ]);
+            User::firstOrCreate(
+                ['email' => $user['email']],
+                [
+                    'name' => $user['name'],
+                    'password' => Hash::make('password'),
+                    'role' => $user['role'],
+                    'employee_discount' => $user['role'] === 'karyawan' ? 10.00 : 0,
+                    'employee_debt' => 0,
+                ]
+            );
         }
+
+        $buyerCustomer = Customer::firstOrCreate(
+            ['phone' => '081234567890'],
+            [
+                'name' => 'Budi Pembeli',
+                'type' => 'reguler',
+                'address' => 'Jl. Ahmad Yani No. 10, Pontianak',
+                'points' => 25,
+                'deposit_balance' => 0,
+                'is_active' => true,
+            ]
+        );
+
+        User::firstOrCreate(
+            ['email' => 'pembeli@sentosa.test'],
+            [
+                'name' => 'Budi Pembeli',
+                'password' => Hash::make('password'),
+                'role' => 'pelanggan',
+                'customer_id' => $buyerCustomer->id,
+                'phone' => '081234567890',
+                'address' => 'Jl. Ahmad Yani No. 10, Pontianak',
+            ]
+        );
     }
 }

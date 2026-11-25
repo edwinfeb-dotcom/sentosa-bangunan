@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Category extends Model
 {
     use SoftDeletes;
-    protected $fillable = ['name', 'is_active'];
+    protected $fillable = ['code', 'name', 'is_active'];
     protected $casts = ['is_active' => 'boolean'];
 
     public function products()

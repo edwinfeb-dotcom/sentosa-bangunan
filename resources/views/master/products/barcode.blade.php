@@ -9,14 +9,14 @@
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body p-4">
                 <h5 class="fw-bold mb-3" style="color: #1E293B;">Pengaturan Cetak</h5>
-                
+
                 <div class="mb-3">
                     <label class="form-label fw-medium">Pilih Produk</label>
-                    <select class="form-select" id="productSelect" x-data x-on:change="window.updatePreview()">
+                    <select class="form-select" id="productSelect">
                         <option value="">-- Pilih Produk --</option>
                         @foreach($products as $product)
-                            <option value="{{ $product->barcode }}" data-name="{{ $product->name }}" data-price="{{ $product->selling_price }}">
-                                {{ $product->name }} ({{ $product->barcode ?? 'Tanpa Barcode' }})
+                            <option value="{{ $product->barcode }}" data-id="{{ $product->id }}" data-name="{{ $product->name }}" data-price="{{ $product->selling_price }}">
+                                {{ $product->name }} ({{ $product->barcode ?: 'Tanpa Barcode' }})
                             </option>
                         @endforeach
                     </select>
@@ -24,15 +24,15 @@
 
                 <div class="mb-3">
                     <label class="form-label fw-medium">Jumlah Label yang Dicetak</label>
-                    <input type="number" id="qtyInput" class="form-control" value="1" min="1" max="50" x-on:input="window.updatePreview()">
+                    <input type="number" id="qtyInput" class="form-control" value="1" min="1" max="100">
                 </div>
 
                 <div class="mb-3 form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="showPrice" checked x-on:change="window.updatePreview()">
+                    <input class="form-check-input" type="checkbox" id="showPrice" checked>
                     <label class="form-check-label" for="showPrice">Tampilkan Harga</label>
                 </div>
 
-                <button onclick="window.print()" class="btn btn-primary w-100 mt-3 d-flex justify-content-center align-items-center gap-2">
+                <button type="button" id="printBarcodeBtn" onclick="window.print()" class="btn btn-primary w-100 mt-3 d-flex justify-content-center align-items-center gap-2" disabled>
                     <i class="ph ph-printer"></i> Cetak Sekarang
                 </button>
             </div>
@@ -47,7 +47,6 @@
             </div>
             <div class="card-body p-4 bg-light">
                 <div id="print-area" class="d-flex flex-wrap gap-2 justify-content-center">
-                    <!-- Barcode akan di-generate di sini oleh JS -->
                     <div class="text-center text-muted py-5">
                         Silakan pilih produk di sebelah kiri untuk melihat preview.
                     </div>
@@ -58,12 +57,11 @@
 </div>
 
 <style>
-    /* CSS Khusus Label Barcode */
     .barcode-label {
         background: white;
         border: 1px dashed #ccc;
         padding: 10px;
-        width: 180px; /* Lebar label */
+        width: 180px;
         text-align: center;
         box-sizing: border-box;
     }
@@ -85,12 +83,10 @@
         margin-top: 5px;
     }
 
-    /* Aturan saat tombol Print ditekan */
     @media print {
         body { background-color: white !important; }
-        #sidebar-wrapper, .navbar, .d-print-none { display: none !important; }
-        #page-content-wrapper { width: 100% !important; margin: 0 !important; padding: 0 !important; }
-        .container-fluid { padding: 0 !important; }
+        .app-sidebar, .app-topbar, .navbar, .d-print-none { display: none !important; }
+        .app-main, .page-content { width: 100% !important; margin: 0 !important; padding: 0 !important; }
         .col-md-8 { width: 100% !important; max-width: 100% !important; flex: 0 0 100% !important; }
         .card { border: none !important; box-shadow: none !important; }
         .card-body { padding: 0 !important; background: white !important; }
@@ -101,56 +97,89 @@
 
 @push('scripts')
 <script>
-    window.updatePreview = function() {
+    window.updatePreview = async function() {
         const select = document.getElementById('productSelect');
-        const qty = parseInt(document.getElementById('qtyInput').value) || 1;
+        const qtyInput = document.getElementById('qtyInput');
+        const qty = Math.min(100, Math.max(1, parseInt(qtyInput.value, 10) || 1));
         const showPrice = document.getElementById('showPrice').checked;
         const printArea = document.getElementById('print-area');
+        const printBtn = document.getElementById('printBarcodeBtn');
 
-        // Kosongkan area print
         printArea.innerHTML = '';
 
-        // Jika belum pilih produk
-        if (!select.value) {
+        const selectedOption = select.options[select.selectedIndex];
+        if (!selectedOption || select.selectedIndex === 0) {
+            if (printBtn) printBtn.disabled = true;
             printArea.innerHTML = '<div class="text-center text-muted py-5">Silakan pilih produk di sebelah kiri untuk melihat preview.</div>';
             return;
         }
 
-        const selectedOption = select.options[select.selectedIndex];
-        const barcodeValue = select.value;
-        const productName = selectedOption.getAttribute('data-name');
-        const productPrice = selectedOption.getAttribute('data-price');
+        const barcodeValue = (select.value || '').trim();
+        const productName = selectedOption.getAttribute('data-name') || '';
+        const productPrice = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+        const productId = selectedOption.getAttribute('data-id');
+
+        if (!barcodeValue) {
+            if (printBtn) printBtn.disabled = true;
+            const editBase = @json(url('master/products'));
+            const alertBox = document.createElement('div');
+            alertBox.className = 'alert alert-warning border-0 text-center my-3 w-100';
+            alertBox.innerHTML = `Produk <strong></strong> belum memiliki kode barcode. <a href="${editBase}/${productId}/edit" class="alert-link">Isi barcode di Edit Produk</a> terlebih dahulu.`;
+            alertBox.querySelector('strong').textContent = productName;
+            printArea.appendChild(alertBox);
+            return;
+        }
+
+        const JsBarcode = await window.loadJsBarcode();
         const formattedPrice = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(productPrice);
 
-        // Looping sebanyak Qty
         for (let i = 0; i < qty; i++) {
-            // Buat elemen label
-            let labelDiv = document.createElement('div');
+            const labelDiv = document.createElement('div');
             labelDiv.className = 'barcode-label m-1';
-            
-            // HTML isi label
-            let html = `<div class="product-name">${productName}</div>`;
-            html += `<svg class="barcode-svg"></svg>`;
+
+            const nameEl = document.createElement('div');
+            nameEl.className = 'product-name';
+            nameEl.textContent = productName;
+            labelDiv.appendChild(nameEl);
+
+            const svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svgElement.setAttribute('class', 'barcode-svg');
+            labelDiv.appendChild(svgElement);
+
             if (showPrice) {
-                html += `<div class="product-price">${formattedPrice}</div>`;
+                const priceEl = document.createElement('div');
+                priceEl.className = 'product-price';
+                priceEl.textContent = formattedPrice;
+                labelDiv.appendChild(priceEl);
             }
-            
-            labelDiv.innerHTML = html;
+
             printArea.appendChild(labelDiv);
 
-            // Generate Barcode menggunakan JsBarcode
-            let svgElement = labelDiv.querySelector('.barcode-svg');
-            JsBarcode(svgElement, barcodeValue, {
-                format: "CODE128",
-                lineColor: "#000",
-                width: 1.5,
-                height: 40,
-                displayValue: true,
-                fontSize: 12,
-                margin: 0
-            });
+            try {
+                JsBarcode(svgElement, barcodeValue, {
+                    format: 'CODE128',
+                    lineColor: '#000',
+                    width: 1.5,
+                    height: 40,
+                    displayValue: true,
+                    fontSize: 12,
+                    margin: 0
+                });
+            } catch (err) {
+                printArea.innerHTML = '<div class="alert alert-danger border-0 w-100">Format barcode tidak valid untuk CODE128.</div>';
+                if (printBtn) printBtn.disabled = true;
+                return;
+            }
         }
-    }
+
+        if (printBtn) printBtn.disabled = false;
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('productSelect')?.addEventListener('change', window.updatePreview);
+        document.getElementById('qtyInput')?.addEventListener('input', window.updatePreview);
+        document.getElementById('showPrice')?.addEventListener('change', window.updatePreview);
+    });
 </script>
 @endpush
 @endsection

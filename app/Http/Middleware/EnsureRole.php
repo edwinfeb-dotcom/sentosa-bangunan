@@ -10,7 +10,11 @@ class EnsureRole
 {
     public function handle(Request $request, Closure $next, ...$roles): Response
     {
-        if (! $request->user() || ! in_array($request->user()->role, $roles)) {
+        $user = $request->user();
+        $userRole = $user ? strtolower(trim((string) $user->role)) : '';
+        $allowedRoles = array_map(fn ($r) => strtolower(trim((string) $r)), $roles);
+
+        if (! $user || ! in_array($userRole, $allowedRoles, true)) {
             abort(403, 'Akses ditolak. Role Anda tidak memiliki izin.');
         }
 

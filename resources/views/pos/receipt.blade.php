@@ -25,7 +25,7 @@
                 </div>
                 <div class="d-flex justify-content-between mb-3">
                     <span>Kasir:</span>
-                    <span>{{ $sale->cashier->name }}</span>
+                    <span>{{ $sale->cashier?->name ?? '-' }}</span>
                 </div>
 
                 <hr style="border-style: dashed;">
@@ -33,7 +33,7 @@
                 <!-- Daftar Barang -->
                 @foreach($sale->items as $item)
                 <div class="mb-2">
-                    <div class="fw-medium">{{ $item->product->name }}</div>
+                    <div class="fw-medium">{{ $item->product?->name ?? 'Produk Terhapus' }}</div>
                     <div class="d-flex justify-content-between text-muted">
                         <small>{{ $item->qty }} x Rp {{ number_format($item->price_snapshot, 0, ',', '.') }}</small>
                         <small>Rp {{ number_format($item->subtotal, 0, ',', '.') }}</small>
@@ -49,11 +49,11 @@
                 </div>
                 <div class="d-flex justify-content-between mb-1">
                     <span>Metode Bayar:</span>
-                    <span class="text-capitalize">{{ $sale->payments->first()->method }}</span>
+                    <span class="text-capitalize">{{ $sale->payments->first()?->method ?? '-' }}</span>
                 </div>
                 <div class="d-flex justify-content-between mb-3">
                     <span>Uang Diterima:</span>
-                    <span>Rp {{ number_format($sale->payments->first()->amount, 0, ',', '.') }}</span>
+                    <span>Rp {{ number_format($sale->payments->first()?->amount ?? 0, 0, ',', '.') }}</span>
                 </div>
 
                 <div class="text-center mt-4">
@@ -73,10 +73,9 @@
 <style>
     @media print {
         body { background-color: white !important; }
-        #sidebar-wrapper, .navbar, .d-print-none { display: none !important; }
-        #page-content-wrapper { width: 100% !important; margin: 0 !important; padding: 0 !important; }
+        .app-sidebar, .app-topbar, .navbar, .d-print-none { display: none !important; }
+        .app-main, .page-content { width: 100% !important; margin: 0 !important; padding: 0 !important; }
         .card { border: none !important; box-shadow: none !important; }
-        .container-fluid { padding: 0 !important; }
         .col-md-5 { width: 100% !important; max-width: 100% !important; flex: 0 0 100% !important; }
     }
 </style>

@@ -3,47 +3,77 @@
 @section('title', 'Buku Kas')
 
 @section('content')
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-header">
     <div>
-        <h4 class="fw-bold mb-1" style="color: #1E293B;">Buku Kas</h4>
-        <p class="text-muted mb-0" style="font-size: 0.875rem;">Catatan arus kas masuk dan keluar toko.</p>
+        <h2 class="page-title">Buku Kas</h2>
+        <p class="page-subtitle">Catatan transaksi kas masuk dan kas keluar seluruh dompet toko.</p>
     </div>
-    <a href="{{ route('finance.cash-ledger.create') }}" class="btn btn-primary d-flex align-items-center gap-2">
-        <i class="ph ph-plus"></i> Catat Kas Baru
-    </a>
+    <div class="d-flex gap-2">
+        @if(in_array(auth()->user()->role, ['owner', 'admin']))
+        <a href="{{ route('finance.cash-flow.index') }}" class="btn btn-outline-primary">
+            <i class="ph ph-arrows-left-right"></i> Laporan Arus Kas
+        </a>
+        @endif
+        <a href="{{ route('finance.cash-ledger.create') }}" class="btn btn-primary">
+            <i class="ph ph-plus"></i> Catat Kas Baru
+        </a>
+    </div>
 </div>
 
-@if(session('success'))
-    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm" role="alert">
-        <i class="ph ph-check-circle me-2"></i> {{ session('success') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+<!-- Filter -->
+<div class="card mb-4">
+    <div class="card-body p-3">
+        <form action="{{ route('finance.cash-ledger.index') }}" method="GET" class="row g-2 align-items-end">
+            <div class="col-6 col-md-2">
+                <label class="form-label">Dari Tanggal</label>
+                <input type="date" name="date_from" class="form-control" value="{{ request('date_from') }}">
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label">Sampai Tanggal</label>
+                <input type="date" name="date_to" class="form-control" value="{{ request('date_to') }}">
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label">Dompet / Rekening</label>
+                <select name="wallet_id" class="form-select">
+                    <option value="">Semua Dompet</option>
+                    @foreach($wallets as $w)
+                        <option value="{{ $w->id }}" {{ request('wallet_id') == $w->id ? 'selected' : '' }}>{{ $w->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label">Tipe</label>
+                <select name="type" class="form-select">
+                    <option value="">Semua</option>
+                    <option value="in" {{ request('type') == 'in' ? 'selected' : '' }}>Kas Masuk</option>
+                    <option value="out" {{ request('type') == 'out' ? 'selected' : '' }}>Kas Keluar</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100">Filter</button>
+                <a href="{{ route('finance.cash-ledger.index') }}" class="btn btn-light border">Reset</a>
+            </div>
+        </form>
     </div>
-@endif
+</div>
 
-<!-- Ringkasan Saldo (Card Modern) -->
 <div class="row mb-4 g-3">
     <div class="col-md-4">
-        <div class="card border-0 shadow-sm h-100" style="background-color: #ECFDF5; border-left: 4px solid #10B981 !important;">
-            <div class="card-body">
-                <h6 class="text-success mb-2 fw-semibold">Total Kas Masuk</h6>
-                <h4 class="fw-bold text-dark mb-0">Rp {{ number_format($totalIn, 0, ',', '.') }}</h4>
-            </div>
+        <div class="stat-card" style="border-left: 4px solid #10B981;">
+            <div class="stat-label text-success">Total Kas Masuk</div>
+            <div class="stat-value">Rp {{ number_format($totalIn, 0, ',', '.') }}</div>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card border-0 shadow-sm h-100" style="background-color: #FEF2F2; border-left: 4px solid #EF4444 !important;">
-            <div class="card-body">
-                <h6 class="text-danger mb-2 fw-semibold">Total Kas Keluar</h6>
-                <h4 class="fw-bold text-dark mb-0">Rp {{ number_format($totalOut, 0, ',', '.') }}</h4>
-            </div>
+        <div class="stat-card" style="border-left: 4px solid #EF4444;">
+            <div class="stat-label text-danger">Total Kas Keluar</div>
+            <div class="stat-value">Rp {{ number_format($totalOut, 0, ',', '.') }}</div>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card border-0 shadow-sm h-100" style="background-color: #EFF6FF; border-left: 4px solid #1E3A8A !important;">
-            <div class="card-body">
-                <h6 class="text-primary mb-2 fw-semibold">Saldo Akhir Kas</h6>
-                <h4 class="fw-bold text-dark mb-0">Rp {{ number_format($balance, 0, ',', '.') }}</h4>
-            </div>
+        <div class="stat-card" style="border-left: 4px solid #1E3A8A;">
+            <div class="stat-label text-primary">Selisih Periode</div>
+            <div class="stat-value">Rp {{ number_format($balance, 0, ',', '.') }}</div>
         </div>
     </div>
 </div>
@@ -56,6 +86,7 @@
                     <tr>
                         <th>Tanggal</th>
                         <th>Keterangan</th>
+                        <th>Dompet</th>
                         <th>Tipe</th>
                         <th>Nominal</th>
                         <th>Oleh</th>
@@ -65,7 +96,13 @@
                     @forelse($ledgers as $ledger)
                     <tr>
                         <td>{{ \Carbon\Carbon::parse($ledger->date)->format('d/m/Y') }}</td>
-                        <td class="fw-medium" style="color: #1E293B;">{{ $ledger->description }}</td>
+                        <td>
+                            <div class="fw-medium text-dark">{{ $ledger->description }}</div>
+                            @if($ledger->category)
+                                <small class="text-muted text-capitalize">{{ str_replace('_', ' ', $ledger->category) }}</small>
+                            @endif
+                        </td>
+                        <td><span class="badge bg-light text-dark border">{{ $ledger->wallet->name ?? 'Umum' }}</span></td>
                         <td>
                             @if($ledger->type === 'in')
                                 <span class="badge bg-success bg-opacity-10 text-success">Kas Masuk</span>
@@ -80,8 +117,8 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="text-center py-5 text-muted">
-                            <i class="ph ph-wallet fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="ph ph-wallet fs-1 d-block mb-2 opacity-50"></i>
                             Belum ada catatan kas.
                         </td>
                     </tr>
@@ -91,9 +128,7 @@
         </div>
     </div>
     @if($ledgers->hasPages())
-    <div class="card-footer bg-white border-top pt-3">
-        {{ $ledgers->links() }}
-    </div>
+        <div class="card-footer bg-white">{{ $ledgers->links() }}</div>
     @endif
 </div>
 @endsection

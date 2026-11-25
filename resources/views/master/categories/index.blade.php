@@ -3,13 +3,12 @@
 @section('title', 'Master Kategori')
 
 @section('content')
-<!-- Header Halaman -->
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-header">
     <div>
-        <h4 class="fw-bold mb-1" style="color: #1E293B;">Master Kategori</h4>
-        <p class="text-muted mb-0" style="font-size: 0.875rem;">Kelola daftar kategori produk toko Anda.</p>
+        <h2 class="page-title">Master Kategori</h2>
+        <p class="page-subtitle">Kelola daftar kategori produk toko Anda.</p>
     </div>
-    <a href="{{ route('master.categories.create') }}" class="btn btn-primary d-flex align-items-center gap-2">
+    <a href="{{ route('master.categories.create') }}" class="btn btn-primary">
         <i class="ph ph-plus"></i> Tambah Kategori
     </a>
 </div>

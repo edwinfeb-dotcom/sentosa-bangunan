@@ -3,49 +3,57 @@
 namespace App\Http\Controllers\Pos;
 
 use App\Http\Controllers\Controller;
+use App\Models\CashLedger;
 use App\Models\CashSession;
+use App\Models\Category;
+use App\Models\Customer;
+use App\Models\DepositLedger;
+use App\Models\EmployeeDebt;
+use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\StockLedger;
-use App\Models\Payment;
-use App\Models\CashLedger;
 use App\Models\User;
-use App\Models\EmployeeDebt; 
+use App\Models\Wallet;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use App\Models\Customer;
 
 class PosController extends Controller
 {
     public function index()
     {
-        // Pastikan kasir sudah buka sesi
         $session = CashSession::where('user_id', auth()->id())->where('status', 'open')->first();
         if (!$session) {
             return redirect()->route('pos.session.index')->with('error', 'Silakan buka sesi kasir terlebih dahulu.');
         }
 
-        // Ambil semua produk aktif untuk dilempar ke frontend (Alpine.js)
-        $products = Product::where('is_active', true)->get();
+        $products = Product::select(['id', 'category_id', 'barcode', 'name', 'unit', 'image', 'selling_price', 'stock_minimum'])
+            ->with('category:id,name')
+            ->withStock()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+        $categories = Category::select(['id', 'name'])->where('is_active', true)->orderBy('name')->get();
+        $wallets = Wallet::select(['id', 'name', 'type'])->where('is_active', true)->get();
 
-        // Generate UUID untuk Idempotency Key (BR-08)
         $idempotencyKey = (string) Str::uuid();
-        
-        // Hitung uang laci
-        $cashSales = Payment::whereHas('sale', function($q) use ($session) {
+
+        $cashSales = Payment::whereHas('sale', function ($q) use ($session) {
             $q->where('cash_session_id', $session->id)->where('status', 'completed');
         })->where('method', 'cash')->sum('amount');
 
         $expectedCash = $session->opening_balance + $cashSales;
-
-        // AMBIL DATA KARYAWAN YANG PUNYA DISKON (DIPINDAHKAN KE SINI)
         $employees = User::where('role', 'karyawan')->where('employee_discount', '>', 0)->get();
+        $customers = Customer::select(['id', 'name', 'points', 'deposit_balance'])
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
 
-        // AMBIL DATA PELANGGAN UNTUK LOYALTY
-        $customers = Customer::where('is_active', true)->get();
-
-        return view('pos.index', compact('products', 'session', 'idempotencyKey', 'cashSales', 'expectedCash', 'employees', 'customers'));
+        return view('pos.index', compact(
+            'products', 'categories', 'wallets', 'session',
+            'idempotencyKey', 'cashSales', 'expectedCash', 'employees', 'customers'
+        ));
     }
 
     public function store(Request $request)
@@ -55,13 +63,13 @@ class PosController extends Controller
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.qty' => 'required|integer|min:1',
-            'payment_method' => 'required|in:cash,transfer,employee_debt',
+            'payment_method' => 'required|in:cash,transfer,employee_debt,deposit',
             'paid_amount' => 'required|numeric|min:0',
             'employee_id' => 'nullable|exists:users,id',
             'customer_id' => 'nullable|exists:customers,id',
+            'wallet_id' => 'nullable|exists:wallets,id',
         ]);
 
-        // BR-08: Cek Idempotency (Cegah double submit)
         if (Sale::where('idempotency_key', $request->idempotency_key)->exists()) {
             return response()->json(['status' => 'error', 'message' => 'Transaksi ini sudah diproses.'], 422);
         }
@@ -76,24 +84,30 @@ class PosController extends Controller
                 $totalBeforeDiscount = 0;
                 $invoiceNumber = 'INV-' . date('Ymd') . '-' . str_pad(Sale::whereDate('created_at', date('Y-m-d'))->count() + 1, 4, '0', STR_PAD_LEFT);
 
-                // 1. Buat Nota Penjualan (Total sementara 0)
                 $sale = Sale::create([
                     'invoice_number' => $invoiceNumber,
                     'idempotency_key' => $request->idempotency_key,
                     'cash_session_id' => $session->id,
                     'user_id' => auth()->id(),
-                    'total_amount' => 0, 
+                    'customer_id' => $request->customer_id,
+                    'total_amount' => 0,
                     'discount_amount' => 0,
                     'status' => 'completed',
                 ]);
 
-                // 2. Simpan Item & Potong Stok (BR-01 & BR-03)
                 foreach ($request->items as $item) {
-                    $product = Product::find($item['product_id']);
+                    $product = Product::withStock()->find($item['product_id']);
+                    if (!$product) {
+                        throw new \RuntimeException('Produk tidak ditemukan.');
+                    }
+                    $stockBefore = $product->current_stock;
+                    if ($stockBefore < $item['qty']) {
+                        throw new \RuntimeException("Stok {$product->name} tidak mencukupi (tersisa {$stockBefore} {$product->unit}).");
+                    }
+
                     $subtotal = $item['qty'] * $product->selling_price;
                     $totalBeforeDiscount += $subtotal;
 
-                    // Simpan item dengan Snapshot Harga (BR-01)
                     $sale->items()->create([
                         'product_id' => $product->id,
                         'qty' => $item['qty'],
@@ -101,8 +115,6 @@ class PosController extends Controller
                         'subtotal' => $subtotal,
                     ]);
 
-                    // Catat Stok Keluar ke Ledger (BR-03)
-                    $stockBefore = $product->current_stock;
                     StockLedger::create([
                         'product_id' => $product->id,
                         'user_id' => auth()->id(),
@@ -116,7 +128,6 @@ class PosController extends Controller
                     ]);
                 }
 
-                // 3. Hitung Diskon Karyawan (Jika Ada)
                 $discountAmount = 0;
                 if ($request->employee_id) {
                     $employee = User::find($request->employee_id);
@@ -124,31 +135,57 @@ class PosController extends Controller
                         $discountAmount = $totalBeforeDiscount * ($employee->employee_discount / 100);
                     }
                 }
-                
+
                 $totalAmount = $totalBeforeDiscount - $discountAmount;
 
-                // Update Total Akhir & Diskon ke Nota
                 $sale->update([
                     'total_amount' => $totalAmount,
-                    'discount_amount' => $discountAmount
+                    'discount_amount' => $discountAmount,
                 ]);
 
                 if ($request->customer_id) {
-                    $customer = Customer::find($request->customer_id);
+                    $customer = Customer::lockForUpdate()->find($request->customer_id);
                     if ($customer) {
-                        // Contoh aturan: Rp 50.000 = 1 Bintang
-                        $pointsEarned = floor($totalAmount / 50000); 
-                        $customer->increment('points', $pointsEarned);
+                        if ($request->payment_method === 'deposit') {
+                            if ((float) $customer->deposit_balance < $totalAmount) {
+                                throw new \RuntimeException('Saldo deposit ' . $customer->name . ' tidak mencukupi (tersisa Rp ' . number_format($customer->deposit_balance, 0, ',', '.') . ').');
+                            }
+                            $customer->decrement('deposit_balance', $totalAmount);
+                            DepositLedger::create([
+                                'customer_id' => $customer->id,
+                                'user_id' => auth()->id(),
+                                'type' => 'out',
+                                'amount' => $totalAmount,
+                                'description' => 'Pembayaran POS: ' . $sale->invoice_number,
+                            ]);
+                        }
+
+                        $pointsEarned = floor($totalAmount / 50000);
+                        if ($pointsEarned > 0) {
+                            $customer->increment('points', $pointsEarned);
+                        }
                     }
+                } elseif ($request->payment_method === 'deposit') {
+                    throw new \RuntimeException('Silakan pilih pelanggan terlebih dahulu untuk membayar dengan Saldo Deposit.');
                 }
 
-                // 4. Simpan Pembayaran
+                // Resolve wallet
+                $walletId = $request->wallet_id;
+                if (!$walletId && !in_array($request->payment_method, ['employee_debt', 'deposit'], true)) {
+                    $walletType = $request->payment_method === 'transfer' ? 'bank' : 'cash';
+                    $walletId = Wallet::where('type', $walletType)->where('is_active', true)->value('id');
+                }
+
+                $paidAmountRecorded = in_array($request->payment_method, ['employee_debt', 'deposit'], true)
+                    ? $totalAmount
+                    : $request->paid_amount;
+
                 $sale->payments()->create([
+                    'wallet_id' => in_array($request->payment_method, ['employee_debt', 'deposit'], true) ? null : $walletId,
                     'method' => $request->payment_method,
-                    'amount' => $request->paid_amount,
+                    'amount' => $paidAmountRecorded,
                 ]);
 
-                // 5. JIKA POTONG GAJI, CATAT KE UTANG KARYAWAN
                 if ($request->payment_method === 'employee_debt' && $request->employee_id) {
                     EmployeeDebt::create([
                         'user_id' => $request->employee_id,
@@ -159,11 +196,12 @@ class PosController extends Controller
                     ]);
                 }
 
-                // 6. CATAT KE BUKU KAS (Hanya jika bukan potong gaji)
-                if ($request->payment_method !== 'employee_debt') {
+                if (!in_array($request->payment_method, ['employee_debt', 'deposit'], true)) {
                     CashLedger::create([
                         'user_id' => auth()->id(),
+                        'wallet_id' => $walletId,
                         'type' => 'in',
+                        'category' => 'penjualan',
                         'amount' => $totalAmount,
                         'description' => 'Penjualan POS: ' . $sale->invoice_number,
                         'reference_type' => get_class($sale),
@@ -176,19 +214,18 @@ class PosController extends Controller
             });
 
             return response()->json([
-                'status' => 'success', 
+                'status' => 'success',
                 'message' => 'Transaksi berhasil!',
-                'redirect' => route('pos.receipt', $sale->id) 
+                'redirect' => route('pos.receipt', $sale->id),
             ]);
-
-        } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        } catch (\Throwable $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
         }
     }
 
     public function receipt(Sale $sale)
     {
-        $sale->load(['items.product', 'payments', 'cashier']);
+        $sale->load(['items.product', 'payments.wallet', 'cashier', 'customer']);
         return view('pos.receipt', compact('sale'));
     }
 }

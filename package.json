@@ -14,7 +14,9 @@
         "@phosphor-icons/web": "^2.1.2",
         "alpinejs": "^3.17.5",
         "bootstrap": "^5.3.9",
+        "html5-qrcode": "^2.3.8",
         "jsbarcode": "^3.12.3",
+        "qrcode": "^1.5.4",
         "sass": "^1.108.2"
     }
 }

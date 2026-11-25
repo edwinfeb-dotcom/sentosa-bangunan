@@ -3,132 +3,610 @@
 @import "@fontsource/plus-jakarta-sans/600.css";
 @import "@fontsource/plus-jakarta-sans/700.css";
 
-// Warna Dasar
-$primary: #1e3a8a; // Biru Gelap
-$success: #10b981; // Hijau
-$danger: #ef4444; // Merah
-$warning: #f59e0b; // Kuning Emas
-$info: #3b82f6; // Biru Muda
+// Architectural Minimal Palette (Sentosa Bangunan)
+$primary: #c2410c;   // Terracotta / Copper Accent
+$secondary: #52525b; // Warm Slate
+$success: #15803d;   // Architectural Pine Green
+$danger: #b91c1c;    // Deep Brick Red
+$warning: #b45309;   // Warm Amber
+$info: #0369a1;      // Deep Steel Blue
+$dark: #18181b;      // Obsidian Charcoal
 
-$body-bg: #f4f7f6; // Abu-abu sangat muda (sedikit kehijauan)
-$body-color: #334155; // Slate Grey
+$body-bg: #f7f6f2;   // Warm Stone Paper
+$body-color: #18181b;
+$border-color: #e4e1da;
 
 @import "bootstrap/scss/bootstrap";
 
-// --- CUSTOM DESIGN SYSTEM ---
-
-body {
-  font-family: "Plus Jakarta Sans", sans-serif;
-  background-color: $body-bg;
-  color: $body-color;
-  -webkit-font-smoothing: antialiased;
+:root {
+  --sb-canvas: #f7f6f2;
+  --sb-surface: #ffffff;
+  --sb-surface-muted: #f1efea;
+  --sb-sidebar-bg: #faf9f6;
+  --sb-border: #e4e1da;
+  --sb-border-strong: #d4d0c7;
+  --sb-ink: #18181b;
+  --sb-ink-secondary: #52525b;
+  --sb-ink-muted: #71717a;
+  --sb-accent: #c2410c;
+  --sb-accent-hover: #9a3412;
+  --sb-accent-soft: #fff7ed;
+  --sb-accent-border: #fed7aa;
 }
 
-// 1. Card (Bersih tanpa shadow tebal)
-.card {
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02); // Shadow sangat tipis
-  background: #fff;
+[x-cloak] {
+  display: none !important;
+}
 
-  .card-header {
-    background-color: #fff;
-    border-bottom: 1px solid #e2e8f0;
-    padding: 1.25rem 1.5rem;
-    border-radius: 12px 12px 0 0 !important;
-    font-weight: 700;
-    color: #1e293b;
+body {
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--sb-canvas);
+  color: var(--sb-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.text-accent {
+  color: var(--sb-accent) !important;
+}
+
+// --- ARCHITECTURAL SHELL (INTERNAL ERP) ---
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.app-sidebar {
+  width: 264px;
+  flex-shrink: 0;
+  background-color: var(--sb-sidebar-bg);
+  color: var(--sb-ink-secondary);
+  border-right: 1px solid var(--sb-border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 1045;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @media (max-width: 991.98px) {
+    position: fixed;
+    left: 0;
+    top: 0;
+    transform: translateX(-100%);
+    box-shadow: 12px 0 36px rgba(24, 24, 27, 0.14);
+
+    &.is-open {
+      transform: translateX(0);
+    }
   }
 }
 
-// 2. Tabel Modern (Gaya Klien)
+.sidebar-backdrop {
+  display: none;
+  @media (max-width: 991.98px) {
+    &.is-open {
+      display: block;
+      position: fixed;
+      inset: 0;
+      background: rgba(24, 24, 27, 0.42);
+      backdrop-filter: blur(2px);
+      z-index: 1040;
+    }
+  }
+}
+
+.sidebar-brand {
+  height: 68px;
+  padding: 0 1.15rem;
+  border-bottom: 1px solid var(--sb-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.sidebar-nav {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0.75rem 0.75rem 1.5rem;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #d6d3cb;
+    border-radius: 6px;
+  }
+}
+
+.sidebar-section-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--sb-ink-muted);
+  padding: 1rem 0.65rem 0.35rem;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.52rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  color: var(--sb-ink-secondary);
+  font-size: 0.855rem;
+  font-weight: 500;
+  text-decoration: none;
+  margin-bottom: 2px;
+  transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+
+  i {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    color: var(--sb-ink-muted);
+    transition: color 0.14s ease;
+  }
+
+  &:hover {
+    background-color: var(--sb-surface-muted);
+    color: var(--sb-ink);
+    i {
+      color: var(--sb-ink);
+    }
+  }
+
+  &.active {
+    background-color: var(--sb-surface);
+    border-color: var(--sb-border);
+    color: var(--sb-ink);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(24, 24, 27, 0.05);
+
+    i {
+      color: var(--sb-accent);
+    }
+  }
+}
+
+.sidebar-footer {
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--sb-border);
+  background-color: var(--sb-sidebar-bg);
+  flex-shrink: 0;
+}
+
+.app-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-topbar {
+  height: 68px;
+  background-color: rgba(247, 246, 242, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--sb-border);
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+// --- PUBLIC NAVIGATION ---
+.public-navbar {
+  background-color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--sb-border);
+}
+
+// --- SURFACES, CARDS & PRECISION METRICS ---
+.card {
+  border: 1px solid var(--sb-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.03);
+  background: var(--sb-surface);
+
+  .card-header {
+    background-color: var(--sb-surface);
+    border-bottom: 1px solid var(--sb-border);
+    padding: 0.95rem 1.25rem;
+    border-radius: 12px 12px 0 0 !important;
+    font-weight: 700;
+    font-size: 0.92rem;
+    letter-spacing: -0.01em;
+    color: var(--sb-ink);
+  }
+
+  .card-footer {
+    border-top: 1px solid var(--sb-border);
+    border-radius: 0 0 12px 12px !important;
+  }
+}
+
+.stat-card {
+  border: 1px solid var(--sb-border);
+  border-radius: 12px;
+  background: var(--sb-surface);
+  padding: 1.15rem 1.25rem;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  height: 100%;
+  position: relative;
+
+  &:hover {
+    border-color: var(--sb-border-strong);
+    box-shadow: 0 4px 14px rgba(24, 24, 27, 0.04);
+  }
+
+  .stat-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    border: 1px solid var(--sb-border);
+    background-color: var(--sb-surface-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+  }
+
+  .stat-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sb-ink-muted);
+    margin-bottom: 0.35rem;
+  }
+
+  .stat-value {
+    font-size: 1.32rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums;
+    color: var(--sb-ink);
+    line-height: 1.2;
+  }
+}
+
+.quick-tile {
+  border-radius: 10px;
+  border: 1px solid var(--sb-border);
+  background-color: var(--sb-sidebar-bg);
+  padding: 1rem 0.75rem;
+  text-align: center;
+  text-decoration: none;
+  display: block;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background-color: var(--sb-surface);
+    border-color: var(--sb-ink);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(24, 24, 27, 0.06);
+  }
+}
+
+// --- TREND BAR CHART ---
+.trend-bar-col {
+  position: relative;
+  cursor: pointer;
+
+  .trend-bar-track {
+    background-color: var(--sb-surface-muted);
+    border: 1px solid var(--sb-border);
+  }
+
+  .trend-bar-fill {
+    transition: background-color 0.15s ease, transform 0.15s ease;
+    background-color: var(--sb-ink);
+  }
+
+  &:hover .trend-bar-fill {
+    background-color: var(--sb-accent);
+  }
+
+  .trend-tooltip {
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    top: -34px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--sb-ink);
+    color: #fff;
+    padding: 4px 9px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    transition: opacity 0.14s ease;
+    z-index: 10;
+  }
+
+  &:hover .trend-tooltip {
+    opacity: 1;
+  }
+}
+
+// --- PAGE HEADER ---
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+
+  .page-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--sb-ink);
+    margin-bottom: 0.2rem;
+  }
+
+  .page-subtitle {
+    font-size: 0.875rem;
+    color: var(--sb-ink-secondary);
+    margin-bottom: 0;
+  }
+}
+
+// --- TABLES ---
 .table {
   margin-bottom: 0;
 
   thead {
-    background-color: #f8fafc;
+    background-color: var(--sb-surface-muted);
     th {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #64748b;
+      letter-spacing: 0.06em;
+      color: var(--sb-ink-secondary);
       font-weight: 700;
-      border-bottom: 1px solid #e2e8f0;
-      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--sb-border);
+      padding: 0.82rem 1.2rem;
       border-top: none;
+      white-space: nowrap;
     }
   }
 
   tbody {
     td {
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid #f1f5f9;
+      padding: 0.9rem 1.2rem;
+      border-bottom: 1px solid var(--sb-surface-muted);
       vertical-align: middle;
-      color: #334155;
+      color: var(--sb-ink);
       font-size: 0.875rem;
+      font-variant-numeric: tabular-nums;
     }
     tr:last-child td {
       border-bottom: none;
     }
     tr:hover {
-      background-color: #f8fafc;
+      background-color: #faf9f6;
     }
+  }
+
+  .btn-sm {
+    padding: 0.3rem 0.65rem;
   }
 }
 
-// 3. Form Inputs (Modern & Clean)
+// --- FORMS & BUTTONS ---
+.form-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--sb-ink);
+  margin-bottom: 0.38rem;
+}
+
 .form-control,
 .form-select {
   border-radius: 8px;
-  border: 1px solid #cbd5e1;
-  padding: 0.6rem 1rem;
+  border: 1px solid var(--sb-border-strong);
+  background-color: var(--sb-surface);
+  padding: 0.54rem 0.88rem;
   font-size: 0.875rem;
-  color: #1e293b;
+  color: var(--sb-ink);
 
   &:focus {
-    border-color: $primary;
-    box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+    border-color: var(--sb-accent);
+    box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.14);
   }
 }
 
-// 4. Tombol (Tegas & Profesional)
 .btn {
   border-radius: 8px;
   font-weight: 600;
-  font-size: 0.875rem;
-  padding: 0.5rem 1.25rem;
-  transition: all 0.2s ease-in-out;
-}
-.btn-primary {
-  background-color: $primary;
-  border-color: $primary;
-  &:hover {
-    background-color: darken($primary, 10%);
-    transform: translateY(-1px);
+  font-size: 0.865rem;
+  padding: 0.52rem 1.05rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  transition: all 0.14s ease-in-out;
+
+  &:active:not(:disabled) {
+    transform: scale(0.99);
   }
 }
 
-// 5. Badge Status (Seperti di desain klien)
+.btn-sm {
+  padding: 0.36rem 0.78rem;
+  font-size: 0.8rem;
+  border-radius: 7px;
+}
+
+.btn-lg {
+  padding: 0.72rem 1.35rem;
+  font-size: 0.94rem;
+  border-radius: 10px;
+}
+
+.btn-primary {
+  background-color: var(--sb-accent);
+  border-color: var(--sb-accent);
+  color: #ffffff;
+  &:hover,
+  &:focus-visible {
+    background-color: var(--sb-accent-hover);
+    border-color: var(--sb-accent-hover);
+    color: #ffffff;
+  }
+}
+
+.btn-outline-primary {
+  color: var(--sb-accent);
+  border-color: var(--sb-accent);
+  &:hover {
+    background-color: var(--sb-accent);
+    border-color: var(--sb-accent);
+    color: #ffffff;
+  }
+}
+
+.btn-dark {
+  background-color: var(--sb-ink);
+  border-color: var(--sb-ink);
+}
+
 .badge {
-  padding: 0.4em 0.8em;
+  padding: 0.38em 0.72em;
   border-radius: 6px;
   font-weight: 600;
-  letter-spacing: 0.3px;
-  font-size: 0.75rem;
-}
-// Sidebar Menu Item Hover & Active State
-.list-group-item.active {
-  background-color: #eff6ff !important; // Biru sangat muda
-  border-right: 3px solid $primary !important;
-  color: $primary !important;
+  letter-spacing: 0.02em;
+  font-size: 0.72rem;
 }
 
-.list-group-item-action:hover {
-  background-color: #f8fafc;
-  color: $primary !important;
+.modal-content {
+  border: 1px solid var(--sb-border);
+  border-radius: 14px;
+  box-shadow: 0 24px 48px -12px rgba(24, 24, 27, 0.22);
 }
 
-// Rapikan tombol aksi di tabel
-.table .btn-sm {
-  padding: 0.3rem 0.6rem;
+.nav-pills .nav-link {
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--sb-ink-secondary);
+  background-color: var(--sb-surface-muted);
+  border: 1px solid var(--sb-border);
+
+  &.active {
+    background-color: var(--sb-ink);
+    border-color: var(--sb-ink);
+    color: #ffffff;
+  }
+}
+
+// --- SPLIT AUTH SHELL ---
+.auth-split-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr;
+
+  @media (min-width: 992px) {
+    grid-template-columns: 1.05fr 1fr;
+  }
+}
+
+.auth-showcase {
+  background-color: #18181b;
+  color: #faf9f6;
+  padding: 3rem;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    background-size: 44px 44px;
+    pointer-events: none;
+  }
+}
+
+.auth-form-pane {
+  background-color: var(--sb-canvas);
+  padding: 2rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-form-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--sb-surface);
+  border: 1px solid var(--sb-border);
+  border-radius: 14px;
+  padding: 2.25rem;
+  box-shadow: 0 4px 20px rgba(24, 24, 27, 0.04);
+}
+
+.table-responsive {
+  scrollbar-width: thin;
+  scrollbar-color: #d4d0c7 transparent;
+}
+
+@media (max-width: 575.98px) {
+  .app-topbar {
+    padding: 0 1rem;
+  }
+  .page-header {
+    align-items: flex-start;
+  }
+  .page-header .page-title {
+    font-size: 1.2rem;
+  }
+  .auth-form-card {
+    padding: 1.5rem;
+  }
+}
+
+// --- PRINT ---
+@media print {
+  body {
+    background-color: #ffffff !important;
+  }
+  .app-sidebar,
+  .sidebar-backdrop,
+  .app-topbar,
+  .d-print-none {
+    display: none !important;
+  }
+  .app-main {
+    width: 100% !important;
+  }
+  .card {
+    border: none !important;
+    box-shadow: none !important;
+  }
 }

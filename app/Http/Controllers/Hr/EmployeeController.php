@@ -46,6 +46,8 @@ class EmployeeController extends Controller
             'role' => $request->role,
             'employee_discount' => $request->employee_discount ?? 0,
             'daily_salary' => $request->daily_salary ?? 100000,
+            'monthly_salary' => $request->monthly_salary ?? 0,
+            'absence_deduction_per_day' => $request->absence_deduction_per_day ?? 0,
             'photo' => $photoPath,
             'birth_date' => $request->birth_date,
             'birth_place' => $request->birth_place,
@@ -75,6 +77,8 @@ class EmployeeController extends Controller
         ]);
 
         $data = $request->except(['password', 'photo']);
+        $data['monthly_salary'] = $request->filled('monthly_salary') ? $request->monthly_salary : 0;
+        $data['absence_deduction_per_day'] = $request->filled('absence_deduction_per_day') ? $request->absence_deduction_per_day : 0;
         
         if ($request->filled('password')) {
             $data['password'] = Hash::make($request->password);

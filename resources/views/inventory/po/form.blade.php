@@ -16,7 +16,7 @@
             <div class="card-body p-4">
                 <form action="{{ route('inventory.po.store') }}" method="POST" x-data="poForm()">
                     @csrf
-                    
+
                     <!-- Info PO -->
                     <div class="row mb-4 bg-light rounded p-3 mx-0">
                         <div class="col-md-4">
@@ -51,10 +51,10 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <template x-for="(item, index) in items" :key="index">
+                                <template x-for="(item, index) in items" :key="item.uid">
                                     <tr>
                                         <td>
-                                            <select class="form-select" :name="`items[${index}][product_id]`" x-model="item.product_id" @change="setProductPrice(index)" required>
+                                            <select class="form-select" :name="`items[${index}][product_id]`" x-model="item.product_id" @change="setProductPrice(item, $event.target)" required>
                                                 <option value="">-- Pilih Produk --</option>
                                                 @foreach($products as $product)
                                                     <option value="{{ $product->id }}" data-price="{{ $product->purchase_price }}">
@@ -64,13 +64,13 @@
                                             </select>
                                         </td>
                                         <td>
-                                            <input type="number" class="form-control" :name="`items[${index}][qty]`" x-model.number="item.qty" min="1" @input="calculateTotal()" required>
+                                            <input type="number" class="form-control" :name="`items[${index}][qty]`" x-model.number="item.qty" min="1" required>
                                         </td>
                                         <td>
-                                            <input type="number" class="form-control" :name="`items[${index}][price]`" x-model.number="item.price" min="0" @input="calculateTotal()" required>
+                                            <input type="number" class="form-control" :name="`items[${index}][price]`" x-model.number="item.price" min="0" required>
                                         </td>
                                         <td class="fw-medium">
-                                            <span x-text="'Rp ' + formatRupiah(item.qty * item.price)"></span>
+                                            <span x-text="'Rp ' + formatRupiah((Number(item.qty) || 0) * (Number(item.price) || 0))"></span>
                                         </td>
                                         <td class="text-center">
                                             <button type="button" class="btn btn-sm btn-light border text-danger" @click="removeItem(index)" x-show="items.length > 1">
@@ -113,25 +113,25 @@
 @push('scripts')
 <script>
     function poForm() {
+        let nextUid = 1;
         return {
-            items: [{ product_id: '', qty: 1, price: 0 }],
+            items: [{ uid: nextUid++, product_id: '', qty: 1, price: 0 }],
             get grandTotal() {
-                return this.items.reduce((total, item) => total + (item.qty * item.price), 0);
+                return this.items.reduce((total, item) => total + ((Number(item.qty) || 0) * (Number(item.price) || 0)), 0);
             },
             addItem() {
-                this.items.push({ product_id: '', qty: 1, price: 0 });
+                this.items.push({ uid: nextUid++, product_id: '', qty: 1, price: 0 });
             },
             removeItem(index) {
                 this.items.splice(index, 1);
             },
-            setProductPrice(index) {
-                let select = document.querySelector(`select[name="items[${index}][product_id]"]`);
-                let selectedOption = select.options[select.selectedIndex];
-                let price = selectedOption.getAttribute('data-price');
-                this.items[index].price = price ? parseInt(price) : 0;
+            setProductPrice(item, selectEl) {
+                const selectedOption = selectEl.options[selectEl.selectedIndex];
+                const price = selectedOption?.getAttribute('data-price');
+                item.price = price ? parseFloat(price) : 0;
             },
             formatRupiah(value) {
-                return new Intl.NumberFormat('id-ID').format(value);
+                return new Intl.NumberFormat('id-ID').format(value || 0);
             }
         }
     }

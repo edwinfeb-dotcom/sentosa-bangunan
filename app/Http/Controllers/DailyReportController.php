@@ -2,23 +2,29 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\DailyReportsExport;
+use App\Models\ChecklistTemplate;
 use App\Models\DailyReport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use App\Exports\DailyReportsExport;
 use Maatwebsite\Excel\Facades\Excel;
 
 class DailyReportController extends Controller
 {
     public function index()
     {
-        $reports = DailyReport::with('user')->latest()->paginate(10);
+        $reports = DailyReport::with(['user', 'verifier'])->latest()->paginate(10);
         return view('daily_reports.index', compact('reports'));
     }
 
     public function create()
     {
-        return view('daily_reports.form');
+        $templates = ChecklistTemplate::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->groupBy('section');
+
+        return view('daily_reports.form', compact('templates'));
     }
 
     public function store(Request $request)
@@ -29,7 +35,7 @@ class DailyReportController extends Controller
             'uang_kecil' => 'required|numeric|min:0',
             'uang_besar' => 'required|numeric|min:0',
             'transfer' => 'required|numeric|min:0',
-            'total_kasir' => 'required|numeric', // Hasil hitungan otomatis
+            'total_kasir' => 'required|numeric',
             'barang_datang' => 'required|string',
             'cek_aset' => 'required|string',
             'absensi' => 'required|string',
@@ -39,7 +45,6 @@ class DailyReportController extends Controller
             'ceklis_sore' => 'required|string',
         ]);
 
-        // Upload maksimal 3 foto
         $fotoPaths = [];
         for ($i = 1; $i <= 3; $i++) {
             $field = 'foto' . $i;
@@ -48,20 +53,22 @@ class DailyReportController extends Controller
             }
         }
 
-        // Kumpulkan data menjadi Array JSON
+        $totalKasir = (float) $request->uang_kecil + (float) $request->uang_besar + (float) $request->transfer;
+
         $reportData = [
             'piket' => $request->piket,
             'laporan_kasir' => [
                 'uang_kecil' => $request->uang_kecil,
                 'uang_besar' => $request->uang_besar,
                 'transfer' => $request->transfer,
-                'total_kasir' => $request->total_kasir,
+                'total_kasir' => $totalKasir,
             ],
             'barang_datang' => $request->barang_datang,
             'cek_aset' => $request->cek_aset,
             'absensi' => $request->absensi,
-            'foto' => $fotoPaths, // Simpan array path foto
+            'foto' => $fotoPaths,
             'ceklis_sore' => $request->ceklis_sore,
+            'checked_items' => $request->input('checked_items', []),
         ];
 
         DailyReport::create([
@@ -74,12 +81,11 @@ class DailyReportController extends Controller
         return redirect()->route('daily-reports.index')->with('success', 'Laporan harian berhasil dikirim. Tunggu verifikasi Admin.');
     }
 
-    // Fitur Verifikasi oleh Admin/Owner
     public function verify(Request $request, DailyReport $dailyReport)
     {
         $request->validate(['code' => 'required|string']);
 
-        if ($request->code !== $dailyReport->verification_code) {
+        if (strtoupper(trim($request->code)) !== $dailyReport->verification_code) {
             return back()->with('error', 'Kode verifikasi salah!');
         }
 

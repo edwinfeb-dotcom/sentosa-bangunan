@@ -9,7 +9,7 @@
             <a href="{{ route('project.projects.index') }}" class="btn btn-light border btn-sm me-3">
                 <i class="ph ph-arrow-left"></i>
             </a>
-            <h4 class="fw-bold mb-0" style="color: #1E293B;">
+            <h4 class="fw-bold mb-0 text-dark">
                 {{ isset($project) ? 'Edit Proyek' : 'Tambah Proyek Baru' }}
             </h4>
         </div>
@@ -21,21 +21,24 @@
                     @if(isset($project))
                         @method('PUT')
                     @endif
-                    
+
                     <div class="row">
                         <div class="col-md-6 mb-4">
-                            <label class="form-label fw-medium">Pelanggan (Kontraktor)</label>
-                            <select class="form-select @error('customer_id') is-invalid @enderror" name="customer_id" required>
-                                <option value="">-- Pilih Pelanggan --</option>
+                            <label class="form-label fw-medium">Pemilik / Kontraktor (Opsional)</label>
+                            <select class="form-select @error('customer_id') is-invalid @enderror" name="customer_id">
+                                <option value="">-- Proyek Internal Owner (Toko Sendiri) --</option>
                                 @foreach($customers as $customer)
-                                    <option value="{{ $customer->id }}" {{ old('customer_id', $project->customer_id ?? '') == $customer->id ? 'selected' : '' }}>{{ $customer->name }}</option>
+                                    <option value="{{ $customer->id }}" {{ old('customer_id', $project->customer_id ?? '') == $customer->id ? 'selected' : '' }}>
+                                        {{ $customer->name }} ({{ ucfirst($customer->type) }})
+                                    </option>
                                 @endforeach
                             </select>
+                            <div class="form-text small">Kosongkan jika ini proyek milik Owner/toko sendiri.</div>
                             @error('customer_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
                         <div class="col-md-6 mb-4">
                             <label class="form-label fw-medium">Nama Proyek</label>
-                            <input type="text" class="form-control @error('name') is-invalid @enderror" name="name" value="{{ old('name', $project->name ?? '') }}" placeholder="Contoh: Renovasi Ruko" required>
+                            <input type="text" class="form-control @error('name') is-invalid @enderror" name="name" value="{{ old('name', $project->name ?? '') }}" placeholder="Contoh: Renovasi Ruko / Bangun Gudang" required>
                             @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
                     </div>
@@ -45,7 +48,7 @@
                             <label class="form-label fw-medium">Pagu Anggaran</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light border-end-0">Rp</span>
-                                <input type="number" class="form-control border-start-0" name="budget" value="{{ old('budget', $project->budget ?? 0) }}" required min="0">
+                                <input type="number" class="form-control border-start-0 tabular-nums" name="budget" value="{{ old('budget', $project->budget ?? 0) }}" required min="0">
                             </div>
                         </div>
                         <div class="col-md-4 mb-4">

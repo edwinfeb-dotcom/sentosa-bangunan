@@ -3,12 +3,12 @@
 @section('title', 'Master Supplier')
 
 @section('content')
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-header">
     <div>
-        <h4 class="fw-bold mb-1" style="color: #1E293B;">Master Supplier</h4>
-        <p class="text-muted mb-0" style="font-size: 0.875rem;">Kelola data pemasok barang toko Anda.</p>
+        <h2 class="page-title">Master Supplier</h2>
+        <p class="page-subtitle">Kelola data pemasok barang toko Anda.</p>
     </div>
-    <a href="{{ route('master.suppliers.create') }}" class="btn btn-primary d-flex align-items-center gap-2">
+    <a href="{{ route('master.suppliers.create') }}" class="btn btn-primary">
         <i class="ph ph-plus"></i> Tambah Supplier
     </a>
 </div>

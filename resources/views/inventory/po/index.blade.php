@@ -3,28 +3,20 @@
 @section('title', 'Purchase Order')
 
 @section('content')
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-header">
     <div>
-        <h4 class="fw-bold mb-1" style="color: #1E293B;">Purchase Order (PO)</h4>
-        <p class="text-muted mb-0" style="font-size: 0.875rem;">Kelola pesanan pembelian barang ke supplier.</p>
+        <h2 class="page-title">Purchase Order (PO)</h2>
+        <p class="page-subtitle">Kelola pesanan pembelian ke supplier dan penerimaan stok barang.</p>
     </div>
-    <a href="{{ route('inventory.po.create') }}" class="btn btn-primary d-flex align-items-center gap-2">
-        <i class="ph ph-plus"></i> Buat PO Baru
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{{ route('inventory.returns.index') }}" class="btn btn-outline-secondary">
+            <i class="ph ph-arrow-u-up-left"></i> Retur Supplier
+        </a>
+        <a href="{{ route('inventory.po.create') }}" class="btn btn-primary">
+            <i class="ph ph-plus"></i> Buat PO Baru
+        </a>
+    </div>
 </div>
-
-@if(session('success'))
-    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm" role="alert">
-        <i class="ph ph-check-circle me-2"></i> {{ session('success') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-@endif
-@if(session('error'))
-    <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm" role="alert">
-        <i class="ph ph-warning-circle me-2"></i> {{ session('error') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-@endif
 
 <div class="card">
     <div class="card-body p-0">
@@ -43,10 +35,10 @@
                 <tbody>
                     @forelse($purchaseOrders as $po)
                     <tr>
-                        <td class="fw-semibold" style="color: #1E293B;">{{ $po->po_number }}</td>
+                        <td class="fw-bold text-primary">{{ $po->po_number }}</td>
                         <td>{{ \Carbon\Carbon::parse($po->order_date)->format('d/m/Y') }}</td>
-                        <td>{{ $po->supplier->name }}</td>
-                        <td class="fw-medium">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</td>
+                        <td>{{ $po->supplier->name ?? '-' }}</td>
+                        <td class="fw-semibold">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</td>
                         <td>
                             @if($po->status === 'ordered')
                                 <span class="badge bg-warning bg-opacity-10 text-warning">Dipesan</span>
@@ -57,22 +49,25 @@
                             @endif
                         </td>
                         <td class="text-end">
-                            @if($po->status === 'ordered')
-                                <form action="{{ route('inventory.po.receive', $po->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Terima semua barang untuk PO ini? Stok akan otomatis bertambah.')">
-                                    @csrf
-                                    <button type="submit" class="btn btn-sm btn-success d-inline-flex align-items-center gap-1">
-                                        <i class="ph ph-check-circle"></i> Terima Barang
-                                    </button>
-                                </form>
-                            @else
-                                <button class="btn btn-sm btn-light border" disabled>Selesai</button>
-                            @endif
+                            <div class="d-inline-flex gap-1">
+                                <button type="button" class="btn btn-sm btn-light border" data-bs-toggle="modal" data-bs-target="#poDetailModal{{ $po->id }}">
+                                    <i class="ph ph-eye"></i> Detail
+                                </button>
+                                @if($po->status === 'ordered')
+                                    <form action="{{ route('inventory.po.receive', $po->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Terima semua barang untuk PO ini? Stok dan Nota Hutang otomatis tercatat.')">
+                                        @csrf
+                                        <button type="submit" class="btn btn-sm btn-success">
+                                            <i class="ph ph-check-circle"></i> Terima Barang
+                                        </button>
+                                    </form>
+                                @endif
+                            </div>
                         </td>
                     </tr>
                     @empty
                     <tr>
                         <td colspan="6" class="text-center py-5 text-muted">
-                            <i class="ph ph-shopping-cart fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                            <i class="ph ph-shopping-cart fs-1 d-block mb-2 opacity-50"></i>
                             Belum ada data Purchase Order.
                         </td>
                     </tr>
@@ -82,9 +77,50 @@
         </div>
     </div>
     @if($purchaseOrders->hasPages())
-    <div class="card-footer bg-white border-top pt-3">
-        {{ $purchaseOrders->links() }}
-    </div>
+        <div class="card-footer bg-white">{{ $purchaseOrders->links() }}</div>
     @endif
 </div>
+
+<!-- PO Detail Modals -->
+@foreach($purchaseOrders as $po)
+<div class="modal fade" id="poDetailModal{{ $po->id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Detail PO: {{ $po->po_number }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row g-2 mb-3 small">
+                    <div class="col-6"><strong>Supplier:</strong> {{ $po->supplier->name ?? '-' }}</div>
+                    <div class="col-6"><strong>Tanggal:</strong> {{ \Carbon\Carbon::parse($po->order_date)->format('d/m/Y') }}</div>
+                    @if($po->notes)
+                        <div class="col-12"><strong>Catatan:</strong> {{ $po->notes }}</div>
+                    @endif
+                </div>
+                <table class="table table-sm border">
+                    <thead>
+                        <tr>
+                            <th>Produk</th>
+                            <th class="text-end">Qty</th>
+                            <th class="text-end">Harga Beli</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($po->items as $item)
+                            <tr>
+                                <td>{{ $item->product->name ?? '-' }}</td>
+                                <td class="text-end">{{ $item->qty }}</td>
+                                <td class="text-end">Rp {{ number_format($item->price, 0, ',', '.') }}</td>
+                                <td class="text-end fw-semibold">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+@endforeach
 @endsection

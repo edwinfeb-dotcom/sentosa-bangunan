@@ -21,6 +21,16 @@ class LoginController extends Controller
         ]);
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
+            if (Auth::user()->role === 'pelanggan') {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return back()->withErrors([
+                    'email' => 'Akun pembeli silakan masuk melalui halaman Masuk Pembeli di Katalog.',
+                ])->onlyInput('email');
+            }
+
             $request->session()->regenerate();
             return redirect()->intended('/dashboard');
         }
@@ -32,9 +42,16 @@ class LoginController extends Controller
 
     public function logout(Request $request)
     {
+        $wasCustomer = Auth::user()?->role === 'pelanggan';
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
+        if ($wasCustomer) {
+            return redirect()->route('catalog.index');
+        }
+
         return redirect('/login');
     }
 }

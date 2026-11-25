@@ -6,11 +6,15 @@ use Illuminate\Database\Eloquent\Model;
 
 class Payment extends Model
 {
-    protected $fillable = ['sale_id', 'method', 'amount'];
+    protected $fillable = ['sale_id', 'wallet_id', 'method', 'amount'];
 
-    // TAMBAHKAN FUNGSI INI
     public function sale()
     {
         return $this->belongsTo(Sale::class);
+    }
+
+    public function wallet()
+    {
+        return $this->belongsTo(Wallet::class);
     }
 }

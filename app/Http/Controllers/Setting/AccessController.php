@@ -11,21 +11,40 @@ class AccessController extends Controller
 {
     public function index()
     {
-        // Tampilkan semua user
-        $users = User::orderBy('role')->paginate(10);
+        $users = User::where('role', '!=', 'pelanggan')->orderBy('role')->paginate(10);
         return view('setting.access.index', compact('users'));
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'role' => 'required|in:owner,admin,kasir,gudang,driver,karyawan',
+            'password' => 'required|string|min:4',
+        ]);
+
+        User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'role' => $request->role,
+            'password' => Hash::make($request->password),
+            'employee_status' => 'aktif',
+            'daily_salary' => 100000,
+        ]);
+
+        return redirect()->route('setting.access.index')->with('success', 'Akun ' . $request->name . ' (' . strtoupper($request->role) . ') berhasil dibuat.');
     }
 
     public function update(Request $request, User $user)
     {
         $request->validate([
             'role' => 'required|in:owner,admin,kasir,gudang,driver,karyawan',
-            'password' => 'nullable|min:4', // PIN atau password baru
+            'password' => 'nullable|min:4',
         ]);
 
         $data = ['role' => $request->role];
 
-        // Jika password diisi, berarti Owner mau mereset password/PIN user ini
         if ($request->filled('password')) {
             $data['password'] = Hash::make($request->password);
         }

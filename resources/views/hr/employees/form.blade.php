@@ -107,8 +107,17 @@
                             <input type="date" class="form-control" name="join_date" value="{{ old('join_date', isset($employee) && $employee->join_date ? $employee->join_date->format('Y-m-d') : date('Y-m-d')) }}" required>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label class="form-label fw-medium">Gaji Harian (Rp)</label>
+                            <label class="form-label fw-medium">Gaji Harian / Lembur (Rp)</label>
                             <input type="number" class="form-control" name="daily_salary" value="{{ old('daily_salary', $employee->daily_salary ?? 100000) }}" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-medium">Gaji Full Bulanan (Rp)</label>
+                            <input type="number" class="form-control" name="monthly_salary" value="{{ old('monthly_salary', $employee->monthly_salary ?? 0) }}" min="0" placeholder="0 = pakai hitungan HOK harian">
+                            <div class="form-text small">Jika &gt; 0, gaji bulanan full dipakai &amp; dipotong jika Bolos/Alpha.</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-medium">Potongan per Hari Alpha / Bolos (Rp)</label>
+                            <input type="number" class="form-control" name="absence_deduction_per_day" value="{{ old('absence_deduction_per_day', $employee->absence_deduction_per_day ?? 0) }}" min="0" placeholder="0 = otomatis Gaji Full / 26">
                         </div>
                         <div class="col-md-4 mb-3">
                             <label class="form-label fw-medium">Diskon Karyawan (%)</label>

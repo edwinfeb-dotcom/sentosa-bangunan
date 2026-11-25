@@ -2,82 +2,174 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Sale;
+use App\Models\Attendance;
 use App\Models\CashLedger;
-use App\Models\Product;
+use App\Models\CashSession;
+use App\Models\Customer;
 use App\Models\DailyReport;
-use App\Models\Supplier;
-use App\Models\PurchaseOrder;
 use App\Models\Payment;
-use App\Models\Customer; // <-- Tambahan untuk Pelanggan
-use Illuminate\Http\Request;
+use App\Models\Product;
+use App\Models\PublicOrder;
+use App\Models\PurchaseOrder;
+use App\Models\Sale;
+use App\Models\SalesTarget;
+use App\Models\Supplier;
+use App\Models\SupplierInvoice;
+use App\Models\Wallet;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ControlCenterController extends Controller
 {
     public function index(Request $request)
     {
-        // 1. Logika Filter Waktu
-        $filter = $request->get('filter', 'today'); // default: hari ini
-        $queryDate = function ($query, $column = 'created_at') use ($filter) {
+        if (auth()->user()->role === 'kasir') {
+            return $this->kasirDashboard();
+        }
+        if (auth()->user()->role === 'karyawan') {
+            return redirect()->route('hr.attendance.index');
+        }
+
+        $now = Carbon::now('Asia/Pontianak');
+        $filter = $request->get('filter', 'today');
+
+        $queryDate = function ($query, $column = 'created_at') use ($filter, $now) {
             if ($filter === 'today') {
-                return $query->whereDate($column, Carbon::today('Asia/Pontianak'));
+                return $query->whereDate($column, $now->toDateString());
             } elseif ($filter === 'this_month') {
-                return $query->whereMonth($column, Carbon::now('Asia/Pontianak')->month)
-                             ->whereYear($column, Carbon::now('Asia/Pontianak')->year);
+                return $query->whereMonth($column, $now->month)
+                             ->whereYear($column, $now->year);
             }
-            return $query; // 'all' (semua periode)
+            return $query;
         };
 
-        // 2. Ringkasan Penjualan & Transaksi
         $totalTransactions = $queryDate(Sale::where('status', 'completed'))->count();
-        $omzet = $queryDate(Sale::where('status', 'completed'))->sum('total_amount');
-        
-        // Hari tercatat (tanggal unik ada transaksi)
-        $recordedDays = $queryDate(Sale::where('status', 'completed'))
-                        ->select(DB::raw('DATE(created_at) as date'))
-                        ->distinct()->count();
+        $omzet = (float) $queryDate(Sale::where('status', 'completed'))->sum('total_amount');
 
-        // 3. Laporan Harian Terverifikasi
+        $recordedDays = $queryDate(Sale::where('status', 'completed'))
+            ->select(DB::raw('DATE(created_at) as date'))
+            ->distinct()
+            ->count();
+
         $verifiedReports = $queryDate(DailyReport::where('status', 'verified'), 'date')->count();
 
-        // 4. Keuangan (Margin & Pengeluaran)
         $totalMargin = 0;
         $sales = $queryDate(Sale::with('items.product')->where('status', 'completed'))->get();
-        foreach($sales as $sale) {
-            foreach($sale->items as $item) {
-                if($item->product) {
+        foreach ($sales as $sale) {
+            foreach ($sale->items as $item) {
+                if ($item->product) {
                     $totalMargin += ($item->price_snapshot - $item->product->purchase_price) * $item->qty;
                 }
             }
         }
-        
-        $totalExpenses = $queryDate(CashLedger::where('type', 'out'), 'date')->sum('amount');
+
+        $totalExpenses = (float) $queryDate(CashLedger::where('type', 'out'), 'date')->sum('amount');
         $netMargin = $totalMargin - $totalExpenses;
 
-        // 5. Kas Tunai & Bank
-        $kasTunai = $queryDate(Payment::where('method', 'cash'))->sum('amount');
-        $kasBank = $queryDate(Payment::where('method', 'transfer'))->sum('amount');
+        $kasTunai = (float) $queryDate(Payment::where('method', 'cash'))->sum('amount');
+        $kasBank = (float) $queryDate(Payment::where('method', 'transfer'))->sum('amount');
 
-        // 6. Informasi Barang & Persediaan
+        $salesTarget = SalesTarget::where('month', $now->month)->where('year', $now->year)->first();
+        $targetAmount = (float) ($salesTarget->target_amount ?? 0);
+        $monthlyOmzet = (float) Sale::where('status', 'completed')
+            ->whereMonth('created_at', $now->month)
+            ->whereYear('created_at', $now->year)
+            ->sum('total_amount');
+        $targetPercentage = $targetAmount > 0 ? min(100, round(($monthlyOmzet / $targetAmount) * 100, 1)) : 0;
+
+        $wallets = Wallet::where('is_active', true)->get();
+
         $totalSuppliers = Supplier::count();
         $totalProducts = Product::count();
-        $belanjaHariIni = PurchaseOrder::whereDate('created_at', Carbon::today('Asia/Pontianak'))->sum('total_amount');
+        $belanjaHariIni = (float) PurchaseOrder::whereDate('created_at', $now->toDateString())->sum('total_amount');
 
-        // 7. Alert Stok Kritis
-        $semuaProduk = Product::where('is_active', true)->get();
-        $stokKritis = $semuaProduk->filter(function ($product) {
-            return $product->current_stock <= $product->stock_minimum;
-        })->take(5);
+        $stokKritis = Product::withStock()
+            ->where('is_active', true)
+            ->whereRaw("COALESCE((SELECT SUM(CASE WHEN type = 'in' THEN qty ELSE -qty END) FROM stock_ledgers WHERE stock_ledgers.product_id = products.id), 0) <= products.stock_minimum")
+            ->orderBy('name')
+            ->limit(5)
+            ->get();
 
-        // 8. Pelanggan Favorit (Bintang Gold)
+        $pendingOnlineOrders = PublicOrder::where('status', 'pending')->count();
         $topCustomers = Customer::orderBy('points', 'desc')->take(3)->get();
+
+        $salesTrend = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $day = $now->copy()->subDays($i);
+            $dayTotal = (float) Sale::where('status', 'completed')
+                ->whereDate('created_at', $day->toDateString())
+                ->sum('total_amount');
+            $salesTrend[] = [
+                'label' => $day->translatedFormat('D'),
+                'date' => $day->format('d/m'),
+                'total' => $dayTotal,
+            ];
+        }
+        $maxTrend = max(1, collect($salesTrend)->max('total'));
 
         return view('dashboard', compact(
             'filter', 'totalTransactions', 'omzet', 'recordedDays', 'verifiedReports',
             'totalMargin', 'totalExpenses', 'netMargin', 'kasTunai', 'kasBank',
-            'totalSuppliers', 'totalProducts', 'belanjaHariIni', 'stokKritis', 'topCustomers'
+            'totalSuppliers', 'totalProducts', 'belanjaHariIni', 'stokKritis', 'topCustomers',
+            'targetAmount', 'monthlyOmzet', 'targetPercentage', 'wallets',
+            'pendingOnlineOrders', 'salesTrend', 'maxTrend'
+        ));
+    }
+
+    private function kasirDashboard()
+    {
+        $now = Carbon::now('Asia/Pontianak');
+        $user = auth()->user();
+
+        $activeSession = CashSession::where('user_id', $user->id)
+            ->where('status', 'open')
+            ->first();
+
+        $shiftCashSales = 0;
+        $shiftTransactions = 0;
+        $expectedDrawer = 0;
+
+        if ($activeSession) {
+            $shiftTransactions = Sale::where('cash_session_id', $activeSession->id)
+                ->where('status', 'completed')
+                ->count();
+            $shiftCashSales = (float) Payment::whereHas('sale', function ($q) use ($activeSession) {
+                $q->where('cash_session_id', $activeSession->id)->where('status', 'completed');
+            })->where('method', 'cash')->sum('amount');
+            $expectedDrawer = (float) $activeSession->opening_balance + $shiftCashSales;
+        }
+
+        $todaySales = Sale::where('status', 'completed')
+            ->whereDate('created_at', $now->toDateString());
+        $todayOmzet = (float) (clone $todaySales)->sum('total_amount');
+        $todayCount = (clone $todaySales)->count();
+
+        $pendingOnlineOrders = PublicOrder::where('status', 'pending')->count();
+        $unpaidSupplierCount = SupplierInvoice::where('status', '!=', 'paid')->count();
+
+        $recentSales = Sale::with(['payments', 'customer'])
+            ->where('status', 'completed')
+            ->whereDate('created_at', $now->toDateString())
+            ->latest()
+            ->take(8)
+            ->get();
+
+        $attendanceToday = Attendance::where('user_id', $user->id)
+            ->where('date', $now->toDateString())
+            ->first();
+
+        $stokKritis = Product::withStock()
+            ->where('is_active', true)
+            ->whereRaw("COALESCE((SELECT SUM(CASE WHEN type = 'in' THEN qty ELSE -qty END) FROM stock_ledgers WHERE stock_ledgers.product_id = products.id), 0) <= products.stock_minimum")
+            ->orderBy('name')
+            ->limit(6)
+            ->get();
+
+        return view('kasir.dashboard', compact(
+            'activeSession', 'shiftCashSales', 'shiftTransactions', 'expectedDrawer',
+            'todayOmzet', 'todayCount', 'pendingOnlineOrders', 'unpaidSupplierCount',
+            'recentSales', 'attendanceToday', 'stokKritis'
         ));
     }
 }

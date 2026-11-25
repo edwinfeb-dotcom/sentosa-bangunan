@@ -4,31 +4,50 @@ namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
 use App\Models\CashLedger;
+use App\Models\Wallet;
 use Illuminate\Http\Request;
 
 class CashLedgerController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $ledgers = CashLedger::with('user')->latest('date')->latest('id')->paginate(15);
-        
-        // Hitung total kas masuk dan keluar
-        $totalIn = CashLedger::where('type', 'in')->sum('amount');
-        $totalOut = CashLedger::where('type', 'out')->sum('amount');
+        $query = CashLedger::with(['user', 'wallet'])->latest('date')->latest('id');
+
+        if ($request->filled('type')) {
+            $query->where('type', $request->type);
+        }
+        if ($request->filled('wallet_id')) {
+            $query->where('wallet_id', $request->wallet_id);
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('date', '<=', $request->date_to);
+        }
+
+        $totalIn = (clone $query)->where('type', 'in')->sum('amount');
+        $totalOut = (clone $query)->where('type', 'out')->sum('amount');
         $balance = $totalIn - $totalOut;
 
-        return view('finance.cash_ledger.index', compact('ledgers', 'totalIn', 'totalOut', 'balance'));
+        $ledgers = $query->paginate(15)->withQueryString();
+        $wallets = Wallet::where('is_active', true)->get();
+
+        return view('finance.cash_ledger.index', compact('ledgers', 'wallets', 'totalIn', 'totalOut', 'balance'));
     }
 
     public function create()
     {
-        return view('finance.cash_ledger.form');
+        $wallets = Wallet::where('is_active', true)->get();
+        return view('finance.cash_ledger.form', compact('wallets'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
             'type' => 'required|in:in,out',
+            'wallet_id' => 'nullable|exists:wallets,id',
+            'category' => 'nullable|string|max:50',
             'amount' => 'required|numeric|min:1',
             'description' => 'required|string|max:255',
             'date' => 'required|date',
@@ -36,7 +55,9 @@ class CashLedgerController extends Controller
 
         CashLedger::create([
             'user_id' => auth()->id(),
+            'wallet_id' => $request->wallet_id,
             'type' => $request->type,
+            'category' => $request->category ?? 'operasional',
             'amount' => $request->amount,
             'description' => $request->description,
             'date' => $request->date,

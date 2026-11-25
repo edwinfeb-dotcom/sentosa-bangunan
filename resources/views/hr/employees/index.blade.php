@@ -3,12 +3,12 @@
 @section('title', 'Management Karyawan')
 
 @section('content')
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="page-header">
     <div>
-        <h4 class="fw-bold mb-1" style="color: #1E293B;">Management Karyawan</h4>
-        <p class="text-muted mb-0" style="font-size: 0.875rem;">Kelola identitas, foto, dan status kepegawaian.</p>
+        <h2 class="page-title">Management Karyawan</h2>
+        <p class="page-subtitle">Kelola identitas, foto, gaji harian, dan status kepegawaian.</p>
     </div>
-    <a href="{{ route('hr.employees.create') }}" class="btn btn-primary d-flex align-items-center gap-2">
+    <a href="{{ route('hr.employees.create') }}" class="btn btn-primary">
         <i class="ph ph-plus"></i> Tambah Karyawan
     </a>
 </div>
@@ -41,7 +41,7 @@
                         <td class="ps-4">
                             <div class="d-flex align-items-center gap-3">
                                 @if($emp->photo)
-                                    <img src="{{ asset('storage/' . $emp->photo) }}" alt="Foto" class="rounded-circle object-fit-cover" style="width: 40px; height: 40px;">
+                                    <img src="{{ asset('storage/' . $emp->photo) }}" alt="Foto" class="rounded-circle object-fit-cover" style="width: 40px; height: 40px;" loading="lazy" decoding="async">
                                 @else
                                     <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px;">
                                         {{ substr($emp->name, 0, 1) }}
