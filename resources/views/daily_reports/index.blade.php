@@ -54,11 +54,20 @@
                                 <button type="button" class="btn btn-sm btn-light border" data-bs-toggle="modal" data-bs-target="#detailReportModal{{ $report->id }}">
                                     <i class="ph ph-eye"></i> Detail
                                 </button>
-                                @if($report->status === 'submitted' && in_array(auth()->user()->role, ['admin', 'owner']))
-                                    <form action="{{ route('daily-reports.verify', $report->id) }}" method="POST" class="d-inline-flex gap-1">
+                                @if($report->status === 'submitted')
+                                    @if(in_array(auth()->user()->role, ['admin', 'owner']))
+                                        <form action="{{ route('daily-reports.verify', $report->id) }}" method="POST" class="d-inline-flex gap-1">
+                                            @csrf
+                                            <input type="text" name="code" class="form-control form-control-sm" placeholder="Kode" required style="width: 110px;">
+                                            <button type="submit" class="btn btn-sm btn-success">Verifikasi</button>
+                                        </form>
+                                    @endif
+                                    <form action="{{ route('daily-reports.destroy', $report->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus draft laporan ini?')">
                                         @csrf
-                                        <input type="text" name="code" class="form-control form-control-sm" placeholder="Kode" required style="width: 110px;">
-                                        <button type="submit" class="btn btn-sm btn-success">Verifikasi</button>
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-light border text-danger" title="Hapus Draft">
+                                            <i class="ph ph-trash"></i>
+                                        </button>
                                     </form>
                                 @elseif($report->status === 'verified')
                                     <small class="text-muted">Oleh: {{ $report->verifier->name ?? '-' }}</small>

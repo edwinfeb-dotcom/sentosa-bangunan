@@ -64,11 +64,13 @@ class SimpleXlsxReader
     }
 
     /**
-     * Baca semua sheet menjadi daftar baris 0-indexed [sheetIdx => [rowIdx => [colIdx => val]]].
+     * Baca sheet tertentu (atau seluruh sheet jika $onlySheetNames kosong) sebagai map [sheetName => numericRows].
+     * Aman terhadap file .xlsx / .xlsm berukuran besar karena hanya mem-parse XML sheet yang dipilih.
      *
-     * @return array<int, array<int, array<int, mixed>>>
+     * @param  array<int, string>  $onlySheetNames
+     * @return array<string, array<int, array<int, mixed>>>
      */
-    public static function readAllSheetsAsNumericRows(string $filePath): array
+    public static function readNamedSheetsAsNumericRows(string $filePath, array $onlySheetNames = []): array
     {
         $entries = self::extractZipEntries($filePath);
         if (empty($entries)) {
@@ -76,35 +78,206 @@ class SimpleXlsxReader
         }
 
         $sharedStrings = self::parseSharedStrings($entries['xl/sharedStrings.xml'] ?? '');
-        $sheetPaths = self::sortedSheetPaths($entries);
+        $namedPaths = self::resolveSheetPathsByName($entries);
 
-        $sheets = [];
-        foreach ($sheetPaths as $sheetPath) {
-            $assocRows = self::parseSheetXmlRows($entries[$sheetPath], $sharedStrings);
-            $numericRows = [];
-
-            foreach ($assocRows as $cellsByLetter) {
-                $maxCol = 0;
-                $indexed = [];
-                foreach ($cellsByLetter as $letter => $val) {
-                    $colIdx = self::columnLetterToIndex($letter);
-                    if ($colIdx > $maxCol) {
-                        $maxCol = $colIdx;
-                    }
-                    $indexed[$colIdx] = $val;
-                }
-
-                $row = [];
-                for ($c = 0; $c <= $maxCol; $c++) {
-                    $row[] = $indexed[$c] ?? null;
-                }
-                $numericRows[] = $row;
+        if (empty($namedPaths)) {
+            $fallback = [];
+            foreach (self::sortedSheetPaths($entries) as $i => $path) {
+                $fallback['Sheet' . ($i + 1)] = $path;
             }
-
-            $sheets[] = $numericRows;
+            $namedPaths = $fallback;
         }
 
-        return $sheets;
+        $wantedUpper = array_map(fn ($s) => strtoupper(trim($s)), $onlySheetNames);
+        $result = [];
+
+        foreach ($namedPaths as $sheetName => $sheetPath) {
+            if (!empty($wantedUpper) && !in_array(strtoupper(trim($sheetName)), $wantedUpper, true)) {
+                continue;
+            }
+            if (!isset($entries[$sheetPath])) {
+                continue;
+            }
+
+            $assocRows = self::parseSheetXmlRows($entries[$sheetPath], $sharedStrings);
+            $result[$sheetName] = self::assocRowsToNumericRows($assocRows);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Petakan nama sheet di xl/workbook.xml -> path xl/worksheets/sheetX.xml.
+     *
+     * @return array<string, string>
+     */
+    public static function resolveSheetPathsByName(array $entries): array
+    {
+        $workbookXml = $entries['xl/workbook.xml'] ?? '';
+        $relsXml = $entries['xl/_rels/workbook.xml.rels'] ?? '';
+        if ($workbookXml === '' || $relsXml === '') {
+            return [];
+        }
+
+        $rels = self::parseRelsMap($relsXml);
+        $wb = @simplexml_load_string($workbookXml);
+        if (!$wb || !isset($wb->sheets->sheet)) {
+            return [];
+        }
+
+        $map = [];
+        foreach ($wb->sheets->sheet as $sheet) {
+            $name = (string) ($sheet['name'] ?? '');
+            $rAttrs = $sheet->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+            $rId = (string) ($rAttrs['id'] ?? $sheet['r:id'] ?? '');
+            if ($name !== '' && $rId !== '' && isset($rels[$rId])) {
+                $map[$name] = $rels[$rId];
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param  array<int, array<string, string>>  $assocRows
+     * @return array<int, array<int, mixed>>
+     */
+    private static function assocRowsToNumericRows(array $assocRows): array
+    {
+        $numericRows = [];
+
+        foreach ($assocRows as $cellsByLetter) {
+            $maxCol = 0;
+            $indexed = [];
+            foreach ($cellsByLetter as $letter => $val) {
+                $colIdx = self::columnLetterToIndex($letter);
+                if ($colIdx > $maxCol) {
+                    $maxCol = $colIdx;
+                }
+                $indexed[$colIdx] = $val;
+            }
+
+            $row = [];
+            for ($c = 0; $c <= $maxCol; $c++) {
+                $row[] = $indexed[$c] ?? null;
+            }
+            $numericRows[] = $row;
+        }
+
+        return $numericRows;
+    }
+
+    /**
+     * Parse angka dari sel Excel (termasuk format ribuan titik/koma & abaikan formula error #NAME?, #REF!, dll).
+     */
+    public static function parseNumber(mixed $value): float
+    {
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        $str = trim((string) $value);
+        if ($str === '' || $str === '-' || str_starts_with($str, '#')) {
+            return 0.0;
+        }
+
+        $str = str_ireplace(['Rp', 'IDR', ' '], '', $str);
+
+        if (preg_match('/^-?\d{1,3}(\.\d{3})+(,\d{1,2})?$/', $str)) {
+            $str = str_replace('.', '', $str);
+            $str = str_replace(',', '.', $str);
+            return (float) $str;
+        }
+
+        if (preg_match('/^-?\d{1,3}(,\d{3})+(\.\d{1,2})?$/', $str)) {
+            $str = str_replace(',', '', $str);
+            return (float) $str;
+        }
+
+        if (is_numeric($str)) {
+            return (float) $str;
+        }
+
+        if (preg_match('/^-?\d+,\d{1,4}$/', $str)) {
+            $str = str_replace(',', '.', $str);
+            return (float) $str;
+        }
+
+        $cleaned = preg_replace('/[^0-9.-]/', '', str_replace('.', '', $str));
+        return is_numeric($cleaned) ? (float) $cleaned : 0.0;
+    }
+
+    /**
+     * Konversi serial tanggal Excel (cth: 45846) atau string tanggal menjadi format Y-m-d.
+     */
+    public static function parseExcelDate(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        $str = trim((string) $value);
+        if ($str === '' || str_starts_with($str, '#')) {
+            return null;
+        }
+
+        if (is_numeric($str)) {
+            $num = (int) floor((float) $str);
+            if ($num >= 20000 && $num <= 70000) {
+                return \Carbon\Carbon::create(1899, 12, 30, 0, 0, 0, 'Asia/Pontianak')
+                    ->addDays($num)
+                    ->format('Y-m-d');
+            }
+            return null;
+        }
+
+        try {
+            return \Carbon\Carbon::parse($str, 'Asia/Pontianak')->format('Y-m-d');
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Pembaca universal spreadsheet (.xlsx, .xlsm, .xls, .csv) mengembalikan [sheetName => numericRows].
+     *
+     * @param  array<int, string>  $onlySheetNames
+     * @return array<string, array<int, array<int, mixed>>>
+     */
+    public static function readSpreadsheetRows(string $filePath, string $ext = 'xlsx', array $onlySheetNames = []): array
+    {
+        $ext = strtolower($ext);
+        if (in_array($ext, ['xlsx', 'xlsm'], true)) {
+            $sheets = self::readNamedSheetsAsNumericRows($filePath, $onlySheetNames);
+            if (!empty($sheets) || !empty($onlySheetNames)) {
+                return $sheets;
+            }
+        }
+
+        try {
+            $readerType = match ($ext) {
+                'csv', 'txt' => \Maatwebsite\Excel\Excel::CSV,
+                'xls' => \Maatwebsite\Excel\Excel::XLS,
+                default => null,
+            };
+            $sheetsArray = \Maatwebsite\Excel\Facades\Excel::toArray(new \stdClass(), $filePath, null, $readerType);
+            $out = [];
+            foreach ($sheetsArray as $idx => $rows) {
+                $out['Sheet' . ($idx + 1)] = $rows;
+            }
+            return $out;
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * Baca semua sheet menjadi daftar baris 0-indexed [sheetIdx => [rowIdx => [colIdx => val]]].
+     *
+     * @return array<int, array<int, array<int, mixed>>>
+     */
+    public static function readAllSheetsAsNumericRows(string $filePath): array
+    {
+        return array_values(self::readNamedSheetsAsNumericRows($filePath));
     }
 
     /**

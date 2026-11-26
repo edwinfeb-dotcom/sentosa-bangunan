@@ -29,6 +29,9 @@ class CashFlowController extends Controller
         $categoryLabels = [
             'penjualan' => 'Penjualan Kasir (POS)',
             'pesanan_online' => 'Pesanan Online (Katalog)',
+            'pelunasan_bon_pelanggan' => 'Pelunasan Bon Pelanggan',
+            'pembayaran_proyek' => 'Pembayaran / DP Proyek',
+            'retur_penjualan' => 'Retur / Batal Penjualan',
             'pembelian_supplier' => 'Pembayaran Nota Supplier',
             'retur_pembelian' => 'Refund Retur Supplier',
             'gaji' => 'Pembayaran Gaji / Payroll',

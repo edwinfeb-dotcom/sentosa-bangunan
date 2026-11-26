@@ -56,8 +56,16 @@ class CashSessionController extends Controller
             $q->where('cash_session_id', $session->id)->where('status', 'completed');
         })->where('method', 'cash')->sum('amount');
 
-        // 2. Uang yang seharusnya ada di laci = Saldo Awal + Penjualan Tunai
-        $expectedBalance = $session->opening_balance + $cashSales;
+        // 2. Hitung mutasi kas laci manual (kas kecil / pelunasan masuk dompet tunai selama shift)
+        $cashWalletIds = \App\Models\Wallet::where('type', 'cash')->pluck('id');
+        $shiftPettyCashNet = (float) \App\Models\CashLedger::whereIn('wallet_id', $cashWalletIds)
+            ->whereNull('reference_type')
+            ->where('created_at', '>=', $session->start_time)
+            ->selectRaw("COALESCE(SUM(CASE WHEN type = 'in' THEN amount ELSE -amount END), 0) as net")
+            ->value('net');
+
+        // 3. Uang yang seharusnya ada di laci = Saldo Awal + Penjualan Tunai + Mutasi Laci Manual
+        $expectedBalance = $session->opening_balance + $cashSales + $shiftPettyCashNet;
 
         // 3. Selisih = Uang Fisik - Uang Sistem
         $difference = $request->actual_closing_balance - $expectedBalance;

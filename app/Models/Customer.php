@@ -16,10 +16,20 @@ class Customer extends Model
         'address', 
         'is_active',
         'points',
-        'deposit_balance'
+        'deposit_balance',
+        'debt_balance',
+        'total_spent_history',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'deposit_balance' => 'decimal:2',
+        'debt_balance' => 'decimal:2',
+        'total_spent_history' => 'decimal:2',
     ];
+
+    public function debtLedgers()
+    {
+        return $this->hasMany(CustomerDebtLedger::class)->latest();
+    }
 }

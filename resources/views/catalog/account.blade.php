@@ -84,6 +84,9 @@
             <div class="stat-card">
                 <div class="stat-label">Saldo Deposit</div>
                 <div class="stat-value text-success">Rp {{ number_format($customer->deposit_balance ?? 0, 0, ',', '.') }}</div>
+                @if((float) ($customer->debt_balance ?? 0) > 0)
+                    <div class="small text-danger fw-semibold mt-1">Sisa Bon: Rp {{ number_format($customer->debt_balance, 0, ',', '.') }}</div>
+                @endif
             </div>
         </div>
     </div>

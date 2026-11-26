@@ -89,4 +89,78 @@ class StockMutationController extends Controller
 
         return back()->with('success', $message);
     }
+
+    public function batchOpname(Request $request)
+    {
+        $request->validate([
+            'actual_stocks' => 'required|array',
+            'notes' => 'nullable|string|max:255',
+        ]);
+
+        $noteText = trim((string) $request->input('notes', 'Opname Massal Gudang'));
+        $updated = 0;
+
+        DB::transaction(function () use ($request, $noteText, &$updated) {
+            foreach ($request->actual_stocks as $productId => $actualRaw) {
+                if ($actualRaw === null || $actualRaw === '') {
+                    continue;
+                }
+                $actualStock = max(0, (int) $actualRaw);
+                $product = Product::withStock()->find($productId);
+                if (!$product) {
+                    continue;
+                }
+                $currentStock = (int) $product->current_stock;
+                $diff = $actualStock - $currentStock;
+                if ($diff === 0) {
+                    continue;
+                }
+
+                StockLedger::create([
+                    'product_id' => $product->id,
+                    'user_id' => auth()->id(),
+                    'type' => $diff > 0 ? 'in' : 'out',
+                    'qty' => abs($diff),
+                    'stock_before' => $currentStock,
+                    'stock_after' => $actualStock,
+                    'reference_type' => 'stock_opname',
+                    'reference_id' => $product->id,
+                    'description' => 'Stock Opname: ' . $noteText,
+                ]);
+                $updated++;
+            }
+        });
+
+        return back()->with('success', $updated > 0 ? "Stock Opname Massal selesai: {$updated} produk disesuaikan." : 'Tidak ada selisih stok yang perlu disesuaikan.');
+    }
+
+    public function export(Request $request)
+    {
+        $query = StockLedger::with(['product.category', 'user'])->latest('id');
+        if ($request->filled('product_id')) $query->where('product_id', $request->product_id);
+        if ($request->filled('type')) $query->where('type', $request->type);
+        if ($request->filled('date_from')) $query->whereDate('created_at', '>=', $request->date_from);
+        if ($request->filled('date_to')) $query->whereDate('created_at', '<=', $request->date_to);
+
+        $rows = $query->limit(2000)->get();
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fputcsv($out, ['Waktu', 'Produk', 'Tipe', 'Qty', 'Stok Sebelum', 'Stok Sesudah', 'Keterangan', 'Petugas']);
+            foreach ($rows as $r) {
+                fputcsv($out, [
+                    $r->created_at->format('Y-m-d H:i:s'),
+                    $r->product->name ?? '-',
+                    strtoupper($r->type),
+                    $r->qty,
+                    $r->stock_before,
+                    $r->stock_after,
+                    $r->description,
+                    $r->user->name ?? '-',
+                ]);
+            }
+            fclose($out);
+        }, 'Kartu_Stok_' . date('Y-m-d') . '.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
 }

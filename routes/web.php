@@ -31,6 +31,7 @@ use App\Http\Controllers\Setting\AccessController;
 use App\Http\Controllers\Setting\BackupController;
 use App\Http\Controllers\Setting\ChecklistTemplateController;
 use App\Http\Controllers\Setting\SalesTargetController;
+use App\Http\Controllers\Setting\StoreSettingController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -73,14 +74,16 @@ Route::middleware(['auth', 'role:owner,admin,kasir,gudang,driver,karyawan'])->gr
     Route::get('/qr-katalog', [PublicCatalogController::class, 'qrPoster'])->name('catalog.qr');
 
     // --- LAPORAN HARIAN & PENJUALAN (Dapat diakses Kasir & Admin/Owner) ---
+    Route::get('daily-reports/pos-summary', [DailyReportController::class, 'posSummary'])->name('daily-reports.pos-summary');
     Route::get('daily-reports/export', [DailyReportController::class, 'export'])->name('daily-reports.export');
-    Route::resource('daily-reports', DailyReportController::class)->only(['index', 'create', 'store']);
+    Route::resource('daily-reports', DailyReportController::class)->only(['index', 'create', 'store', 'destroy']);
     Route::post('daily-reports/{dailyReport}/verify', [DailyReportController::class, 'verify'])
         ->middleware('role:owner,admin')
         ->name('daily-reports.verify');
 
     Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('sales', [SalesReportController::class, 'index'])->name('sales.index');
+        Route::get('sales/export', [SalesReportController::class, 'export'])->name('sales.export');
     });
 
     // --- MASTER DATA OPERASIONAL KASIR (Kategori, Produk, Pelanggan) ---
@@ -94,22 +97,29 @@ Route::middleware(['auth', 'role:owner,admin,kasir,gudang,driver,karyawan'])->gr
         Route::post('products/images/batch', [ProductController::class, 'importImagesBatch'])->name('products.images.batch');
         Route::get('products/barcode/print', [ProductController::class, 'barcodeIndex'])->name('products.barcode');
         Route::resource('products', ProductController::class)->except(['show']);
+        Route::post('customers/import', [CustomerController::class, 'import'])->name('customers.import');
         Route::resource('customers', CustomerController::class);
         Route::post('customers/{customer}/deposit', [CustomerController::class, 'addDeposit'])->name('customers.deposit');
+        Route::post('customers/{customer}/debt', [CustomerController::class, 'recordDebt'])->name('customers.debt');
 
         // Master Supplier khusus Owner / Admin / Gudang
-        Route::resource('suppliers', SupplierController::class)->except(['show'])->middleware('role:owner,admin,gudang');
+        Route::resource('suppliers', SupplierController::class)->middleware('role:owner,admin,gudang');
     });
 
     // --- INVENTORY & PEMBELIAN (PO, Nota Supplier, Retur Supplier) ---
     Route::prefix('inventory')->name('inventory.')->group(function () {
-        Route::resource('po', PurchaseOrderController::class)->except(['show', 'edit', 'update', 'destroy']);
+        Route::resource('po', PurchaseOrderController::class)->except(['show', 'destroy']);
         Route::post('po/{po}/receive', [PurchaseOrderController::class, 'receive'])->name('po.receive');
+        Route::post('po/{po}/cancel', [PurchaseOrderController::class, 'cancel'])->name('po.cancel');
+        Route::get('po/{po}/print', [PurchaseOrderController::class, 'printPo'])->name('po.print');
         Route::get('/supplier-invoices', [SupplierInvoiceController::class, 'index'])->name('invoices.index');
+        Route::post('/supplier-invoices', [SupplierInvoiceController::class, 'store'])->name('invoices.store');
         Route::post('/supplier-invoices/{invoice}/pay', [SupplierInvoiceController::class, 'pay'])->name('invoices.pay');
         Route::resource('returns', PurchaseReturnController::class)->only(['index', 'create', 'store']);
         Route::get('/stock-mutations', [StockMutationController::class, 'index'])->name('stock.index');
+        Route::get('/stock-mutations/export', [StockMutationController::class, 'export'])->name('stock.export');
         Route::post('/stock-mutations/opname', [StockMutationController::class, 'opname'])->name('stock.opname');
+        Route::post('/stock-mutations/batch-opname', [StockMutationController::class, 'batchOpname'])->name('stock.batch-opname');
     });
 
     // --- POS & KASIR (Khusus Owner / Admin / Kasir) ---
@@ -119,18 +129,22 @@ Route::middleware(['auth', 'role:owner,admin,kasir,gudang,driver,karyawan'])->gr
         Route::get('/', [PosController::class, 'index'])->name('index');
         Route::post('/checkout', [PosController::class, 'store'])->name('store');
         Route::get('/struk/{sale}', [PosController::class, 'receipt'])->name('receipt');
+        Route::post('/struk/{sale}/void', [PosController::class, 'voidSale'])->name('void');
         Route::post('/tutup-kasir', [CashSessionController::class, 'close'])->name('session.close');
     });
 
     // --- PESANAN ONLINE ---
     Route::get('/public-orders', [PublicOrderController::class, 'index'])->name('public-orders.index');
+    Route::get('/public-orders/pending-count', [PublicOrderController::class, 'pendingCount'])->name('public-orders.pending-count');
+    Route::get('/public-orders/{order}/print', [PublicOrderController::class, 'printSlip'])->name('public-orders.print');
     Route::post('/public-orders/{order}/process', [PublicOrderController::class, 'process'])->name('public-orders.process');
     Route::post('/public-orders/{order}/status', [PublicOrderController::class, 'updateStatus'])->name('public-orders.status');
 
     // --- FINANCE ---
     Route::prefix('finance')->name('finance.')->group(function () {
         // Buku Kas bisa diakses kasir untuk kas kecil shift
-        Route::resource('cash-ledger', CashLedgerController::class)->except(['show', 'edit', 'update', 'destroy']);
+        Route::get('cash-ledger/export', [CashLedgerController::class, 'export'])->name('cash-ledger.export');
+        Route::resource('cash-ledger', CashLedgerController::class)->except(['show', 'edit', 'update']);
 
         // Dompet Multi-Rekening & Arus Kas khusus Owner / Admin
         Route::middleware('role:owner,admin')->group(function () {
@@ -159,12 +173,14 @@ Route::middleware(['auth', 'role:owner,admin,kasir,gudang,driver,karyawan'])->gr
             Route::get('/attendance/export-monthly', [AttendanceController::class, 'exportMonthly'])->name('attendance.export-monthly');
 
             Route::get('/payroll', [PayrollController::class, 'index'])->name('payroll.index');
+            Route::get('/payroll/export', [PayrollController::class, 'export'])->name('payroll.export');
             Route::post('/payroll/generate', [PayrollController::class, 'generate'])->name('payroll.generate');
             Route::put('/payroll/salary-config/{employee}', [PayrollController::class, 'updateSalaryConfig'])->name('payroll.salary-config');
             Route::put('/payroll/{payroll}/bonus', [PayrollController::class, 'updateBonus'])->name('payroll.bonus');
             Route::post('/payroll/{payroll}/pay', [PayrollController::class, 'markPaid'])->name('payroll.pay');
             Route::get('/payroll/{payroll}/slip', [PayrollController::class, 'slip'])->name('payroll.slip');
             Route::resource('/employees', EmployeeController::class)->except(['show']);
+            Route::post('/employees/import', [EmployeeController::class, 'import'])->name('employees.import');
         });
     });
 
@@ -172,15 +188,22 @@ Route::middleware(['auth', 'role:owner,admin,kasir,gudang,driver,karyawan'])->gr
     Route::middleware('role:owner,admin,gudang,driver')->group(function () {
         Route::prefix('fleet')->name('fleet.')->group(function () {
             Route::resource('vehicles', VehicleController::class)->except(['show']);
-            Route::resource('jobs', TransportJobController::class)->except(['show', 'edit', 'update', 'destroy']);
+            Route::post('jobs/import', [TransportJobController::class, 'import'])->name('jobs.import');
+            Route::post('rates', [TransportJobController::class, 'storeRate'])->name('rates.store');
+            Route::delete('rates/{rate}', [TransportJobController::class, 'destroyRate'])->name('rates.destroy');
+            Route::resource('jobs', TransportJobController::class)->except(['show']);
             Route::post('jobs/{job}/complete', [TransportJobController::class, 'complete'])->name('jobs.complete');
+            Route::get('jobs/{job}/waybill', [TransportJobController::class, 'waybill'])->name('jobs.waybill');
             Route::resource('assets', AssetController::class)->except(['show']);
         });
 
         Route::prefix('project')->name('project.')->group(function () {
+            Route::post('projects/import', [ProjectController::class, 'import'])->name('projects.import');
             Route::resource('projects', ProjectController::class);
             Route::post('projects/{project}/materials', [ProjectController::class, 'storeMaterial'])->name('projects.materials.store');
             Route::post('projects/{project}/materials/return', [ProjectController::class, 'returnMaterial'])->name('projects.materials.return');
+            Route::post('projects/{project}/payments', [ProjectController::class, 'recordPayment'])->name('projects.payments.store');
+            Route::get('projects/{project}/invoice', [ProjectController::class, 'printInvoice'])->name('projects.invoice');
         });
     });
 
@@ -198,9 +221,16 @@ Route::middleware(['auth', 'role:owner,admin,kasir,gudang,driver,karyawan'])->gr
         Route::get('/access', [AccessController::class, 'index'])->name('access.index')->middleware('role:owner');
         Route::post('/access', [AccessController::class, 'store'])->name('access.store')->middleware('role:owner');
         Route::put('/access/{user}', [AccessController::class, 'update'])->name('access.update')->middleware('role:owner');
+        Route::post('/access/{user}/toggle-status', [AccessController::class, 'toggleStatus'])->name('access.toggle')->middleware('role:owner');
 
         Route::get('/backup', [BackupController::class, 'index'])->name('backup.index');
         Route::get('/backup/export-reports', [BackupController::class, 'exportReports'])->name('backup.export-reports');
         Route::get('/backup/download-sql', [BackupController::class, 'downloadSql'])->name('backup.download-sql');
+        Route::post('/backup/run-auto', [BackupController::class, 'runBackupNow'])->name('backup.run');
+        Route::get('/backup/file/{filename}', [BackupController::class, 'downloadBackupFile'])->name('backup.download-file');
+        Route::delete('/backup/file/{filename}', [BackupController::class, 'deleteBackupFile'])->name('backup.delete-file');
+
+        Route::get('/store', [StoreSettingController::class, 'index'])->name('store.index');
+        Route::put('/store', [StoreSettingController::class, 'update'])->name('store.update');
     });
 });

@@ -1109,5 +1109,505 @@ class SentosaAppTest extends TestCase
 
         $this->assertEquals(7, Product::withStock()->find($prod->id)->current_stock);
         $this->assertEquals(195000.0, $project->fresh()->total_material_cost);
+
+        // 6. Strategi & Target Bisnis (Omzet, Profit, Batas Biaya, Kategori Fokus, Fast/Slow Moving) + Follow-Up WA
+        $now = \Carbon\Carbon::now('Asia/Pontianak');
+        $this->actingAs($owner)->post(route('setting.targets.store'), [
+            'month' => $now->month,
+            'year' => $now->year,
+            'target_amount' => 50000000,
+            'target_profit' => 12000000,
+            'max_expense' => 4000000,
+            'working_days' => 25,
+            'focus_category_id' => $cat->id,
+            'notes' => 'Target Ekspansi Q4',
+            'strategy_plan' => 'Dorong penjualan besi beton dan follow-up kontraktor',
+        ])->assertSessionHas('success');
+
+        $target = SalesTarget::where('month', $now->month)->where('year', $now->year)->firstOrFail();
+        $this->assertEquals(12000000.0, (float) $target->target_profit);
+        $this->assertEquals(4000000.0, (float) $target->max_expense);
+        $this->assertEquals(25, $target->working_days);
+        $this->assertEquals($cat->id, $target->focus_category_id);
+
+        $this->get(route('setting.targets.index'))
+            ->assertStatus(200)
+            ->assertSee('Strategi &amp; Target Bisnis', false)
+            ->assertSee('Dorong penjualan besi beton dan follow-up kontraktor')
+            ->assertSee('Produk Terlaris (30 Hari)')
+            ->assertSee('Barang Mengendap (30 Hari)');
+
+        $this->get(route('dashboard'))
+            ->assertStatus(200)
+            ->assertSee('Pace ideal:')
+            ->assertSee('Fokus: ' . $cat->name);
+
+        $this->get(route('master.customers.show', $cust->id))
+            ->assertStatus(200)
+            ->assertSee('https://wa.me/628111222333', false);
+    }
+
+    public function test_store_settings_multi_unit_pos_void_role_workspaces_and_waybill(): void
+    {
+        $owner = $this->createStaffUser('owner');
+        $kasir = $this->createStaffUser('kasir');
+        $gudang = $this->createStaffUser('gudang');
+        $driver = $this->createStaffUser('driver');
+
+        $this->actingAs($owner);
+
+        // 1. Store settings & dynamic bank accounts
+        $setting = \App\Models\StoreSetting::current();
+        $this->assertStringContainsString('Amboyo Inti', $setting->store_address);
+
+        $this->get(route('setting.store.index'))
+            ->assertStatus(200)
+            ->assertSee($setting->store_address);
+
+        $this->post(route('finance.wallets.store'), [
+            'name' => 'BCA Toko Sentosa',
+            'type' => 'bank',
+            'account_number' => '8881234567',
+            'account_holder' => 'Nelson Sentosa',
+            'initial_balance' => 0,
+            'show_on_catalog' => '1',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->post(route('finance.wallets.store'), [
+            'name' => 'BRI Cadangan Hidden',
+            'type' => 'bank',
+            'account_number' => '999000111',
+            'account_holder' => 'Hidden Holder',
+            'initial_balance' => 0,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $cat = Category::create(['name' => 'Material Eceran', 'slug' => 'material-eceran-' . Str::random(5)]);
+        $product = Product::create([
+            'category_id' => $cat->id,
+            'barcode' => 'BRG-' . Str::random(6),
+            'name' => 'Semen Gresik 40Kg',
+            'unit' => 'Sak',
+            'secondary_unit' => 'Kg',
+            'secondary_ratio' => 40,
+            'secondary_price' => 2500,
+            'purchase_price' => 50000,
+            'selling_price' => 65000,
+            'stock_minimum' => 2,
+            'is_active' => true,
+        ]);
+
+        StockLedger::create([
+            'product_id' => $product->id,
+            'user_id' => $owner->id,
+            'type' => 'in',
+            'qty' => 10,
+            'stock_before' => 0,
+            'stock_after' => 10,
+            'description' => 'Stok Awal Eceran',
+        ]);
+
+        $order = PublicOrder::create([
+            'order_code' => 'ORD-' . strtoupper(Str::random(6)),
+            'customer_name' => 'Budi Online',
+            'phone' => '08123456789',
+            'shipping_method' => 'antar',
+            'address' => 'Ngabang',
+            'payment_method' => 'transfer',
+            'total_amount' => 65000,
+            'status' => 'pending',
+        ]);
+
+        $this->get(route('catalog.success', $order->order_code))
+            ->assertStatus(200)
+            ->assertSee('8881234567')
+            ->assertSee('Nelson Sentosa')
+            ->assertDontSee('999000111');
+
+        // Toggle show_customer_accounts off & update address note
+        $this->put(route('setting.store.update'), [
+            'store_name' => 'Sentosa Bangunan',
+            'store_address' => \App\Models\StoreSetting::DEFAULT_ADDRESS,
+            'store_phone' => '081255550000',
+            'bank_transfer_note' => 'Kirim bukti transfer ke WA kasir.',
+        ])->assertRedirect();
+
+        $this->get(route('catalog.index'))
+            ->assertStatus(200)
+            ->assertDontSee('Masuk Pembeli');
+
+        // 2. Pending count polling endpoint
+        $this->getJson(route('public-orders.pending-count'))
+            ->assertStatus(200)
+            ->assertJsonStructure(['pending_count']);
+
+        // 3. Multi-unit POS transaction + receipt address + void/return restore
+        $this->actingAs($kasir);
+        CashSession::create([
+            'user_id' => $kasir->id,
+            'start_time' => now(),
+            'opening_balance' => 100000,
+            'status' => 'open',
+        ]);
+        $cashWallet = Wallet::where('type', 'cash')->first() ?: Wallet::create([
+            'name' => 'Kas Laci',
+            'type' => 'cash',
+            'initial_balance' => 0,
+            'is_active' => true,
+        ]);
+
+        $posRes = $this->postJson(route('pos.store'), [
+            'idempotency_key' => (string) Str::uuid(),
+            'items' => [
+                ['product_id' => $product->id, 'qty' => 40, 'unit_type' => 'secondary'],
+            ],
+            'payment_method' => 'cash',
+            'wallet_id' => $cashWallet->id,
+            'paid_amount' => 100000,
+        ]);
+        $posRes->assertStatus(200)->assertJson(['status' => 'success']);
+        $saleId = (int) basename((string) $posRes->json('redirect'));
+
+        $sale = \App\Models\Sale::with('items')->findOrFail($saleId);
+        $this->assertEquals(100000, (float) $sale->total_amount);
+        $this->assertEquals('Kg', $sale->items->first()->unit_label);
+        $this->assertEquals(9, Product::withStock()->find($product->id)->current_stock);
+
+        $this->get(route('pos.receipt', $sale->id))
+            ->assertStatus(200)
+            ->assertSee('Amboyo Inti')
+            ->assertSee('Kg');
+
+        $this->post(route('pos.void', $sale->id), [
+            'reason' => 'Salah input qty eceran',
+        ])->assertRedirect();
+
+        $this->assertEquals('cancelled', $sale->fresh()->status);
+        $this->assertEquals(10, Product::withStock()->find($product->id)->current_stock);
+
+        // 4. Dedicated Gudang & Driver workspaces + Printable Waybill
+        $this->actingAs($gudang)
+            ->get(route('dashboard'))
+            ->assertStatus(200)
+            ->assertSee('Workspace Operasional Gudang')
+            ->assertSee('Dashboard Gudang');
+
+        $vehicle = \App\Models\Vehicle::create([
+            'name' => 'Pickup L300',
+            'plate_number' => 'KB 8899 XX',
+            'type' => 'internal',
+            'is_active' => true,
+        ]);
+        $job = \App\Models\TransportJob::create([
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'destination' => 'Desa Hilir Kantor Ngabang',
+            'notes' => '10 Sak Semen',
+            'status' => 'on_trip',
+            'departure_date' => now(),
+        ]);
+
+        $this->actingAs($driver)
+            ->get(route('dashboard'))
+            ->assertStatus(200)
+            ->assertSee('Workspace Driver &amp; Pengiriman', false)
+            ->assertSee('Dashboard Driver');
+
+        $this->actingAs($driver)
+            ->get(route('fleet.jobs.waybill', $job->id))
+            ->assertStatus(200)
+            ->assertSee('Surat Jalan Armada')
+            ->assertSee('KB 8899 XX')
+            ->assertSee('Amboyo Inti');
+    }
+
+    public function test_owner_excel_importers_customers_bon_fleet_rates_projects_and_employees(): void
+    {
+        $owner = $this->createStaffUser('owner');
+        $this->actingAs($owner);
+
+        // 1. Import Pelanggan (format BON PELANGGAN) + Lunasi Bon ke Buku Kas
+        $custCsv = "Nama Pelanggan,ALAMAT,NOMOR HP,Total Belanja,deposit,SISA BON\n"
+            . "CV Karya Mandiri,Ngabang,081299990001,15000000,500000,250000\n"
+            . "Pak Anton Bangunan,Amboyo,081299990002,3000000,0,100000\n";
+        $custFile = \Illuminate\Http\UploadedFile::fake()->createWithContent('bon_pelanggan.csv', $custCsv);
+
+        $this->post(route('master.customers.import'), ['file' => $custFile])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $karya = Customer::where('name', 'CV Karya Mandiri')->firstOrFail();
+        $this->assertEquals('kontraktor', $karya->type);
+        $this->assertEquals(500000, (float) $karya->deposit_balance);
+        $this->assertEquals(250000, (float) $karya->debt_balance);
+
+        $wallet = Wallet::where('is_active', true)->first() ?: Wallet::create([
+            'name' => 'Kas Utama',
+            'type' => 'cash',
+            'initial_balance' => 0,
+            'is_active' => true,
+        ]);
+
+        $this->post(route('master.customers.debt', $karya->id), [
+            'action_type' => 'out',
+            'amount' => 150000,
+            'wallet_id' => $wallet->id,
+            'description' => 'Cicilan bon tahap 1',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->assertEquals(100000, (float) $karya->fresh()->debt_balance);
+        $this->assertDatabaseHas('cash_ledgers', [
+            'category' => 'pelunasan_bon_pelanggan',
+            'amount' => 150000,
+        ]);
+
+        $this->get(route('master.customers.show', $karya->id))
+            ->assertStatus(200)
+            ->assertSee('Riwayat Mutasi Bon')
+            ->assertSee('Cicilan bon tahap 1');
+
+        // 2. Import Tarif Angkutan (format sheet HARGA ANGKUTAN) + simpan rate manual
+        $fleetCsv = "NO,ASAL,TUJUAN,4 KUBIK,6 KUBIK,KETERANGAN\n"
+            . "1,SELABA,PASAR AREA,150000,225000,Kota Ngabang\n"
+            . "2,,SINGKOPEK,250000,375000,\n";
+        $fleetFile = \Illuminate\Http\UploadedFile::fake()->createWithContent('angkutan.csv', $fleetCsv);
+
+        $this->post(route('fleet.jobs.import'), ['file' => $fleetFile])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('transport_rates', [
+            'origin' => 'SELABA',
+            'destination' => 'SINGKOPEK',
+            'rate_4_m3' => 250000,
+            'rate_6_m3' => 375000,
+        ]);
+
+        $this->post(route('fleet.rates.store'), [
+            'origin' => 'TOKO SENTOSA',
+            'destination' => 'AMBOYO INTI',
+            'rate_4_m3' => 100000,
+            'rate_6_m3' => 150000,
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->get(route('fleet.jobs.create'))
+            ->assertStatus(200)
+            ->assertSee('Pilih Tarif Rute Tersimpan')
+            ->assertSee('SINGKOPEK')
+            ->assertSee('AMBOYO INTI');
+
+        // 3. Import Proyek (format sheet MASTER PROJECT SENTOSA)
+        $projCsv = "NO,NAMA,SUMBER,DEPO,DEBET,SALDO\n"
+            . "1,SEKENDAL JAYA,CV Sekendal,50000000,20000000,30000000\n"
+            . "2,RUKO KM 6 OWNER,OWNER,30000000,10000000,20000000\n";
+        $projFile = \Illuminate\Http\UploadedFile::fake()->createWithContent('master_project.csv', $projCsv);
+
+        $this->post(route('project.projects.import'), ['file' => $projFile])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('projects', ['name' => 'SEKENDAL JAYA', 'budget' => 50000000]);
+        $this->assertDatabaseHas('projects', ['name' => 'RUKO KM 6 OWNER', 'customer_id' => null]);
+
+        // 4. Import Karyawan
+        $empCsv = "NAMA,ROLE,GAJI HARIAN,NO HP,STATUS\n"
+            . "Dimus Karyawan,karyawan,115000,08123456000,aktif\n";
+        $empFile = \Illuminate\Http\UploadedFile::fake()->createWithContent('karyawan.csv', $empCsv);
+
+        $this->post(route('hr.employees.import'), ['file' => $empFile])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('users', [
+            'name' => 'Dimus Karyawan',
+            'role' => 'karyawan',
+            'daily_salary' => 115000,
+        ]);
+    }
+
+    public function test_all_erp_refinements_hpp_pos_bon_po_opname_backup_and_access(): void
+    {
+        $owner = $this->createStaffUser('owner');
+        $kasir = $this->createStaffUser('kasir');
+
+        $this->actingAs($owner);
+
+        $cat = Category::create(['name' => 'Eceran Test', 'slug' => 'eceran-test-' . Str::random(5)]);
+        $sup = Supplier::create(['name' => 'Supplier Detail Test', 'is_active' => true]);
+        $prod = Product::create([
+            'category_id' => $cat->id,
+            'supplier_id' => $sup->id,
+            'barcode' => 'ECR-' . Str::random(6),
+            'name' => 'Semen Eceran Akurat',
+            'unit' => 'Sak',
+            'secondary_unit' => 'Kg',
+            'secondary_ratio' => 40,
+            'secondary_price' => 2500,
+            'purchase_price' => 50000,
+            'selling_price' => 65000,
+            'stock_minimum' => 2,
+            'is_active' => true,
+        ]);
+
+        StockLedger::create([
+            'product_id' => $prod->id,
+            'user_id' => $owner->id,
+            'type' => 'in',
+            'qty' => 10,
+            'stock_before' => 0,
+            'stock_after' => 10,
+            'description' => 'Stok Awal',
+        ]);
+
+        $cust = Customer::create([
+            'name' => 'Pelanggan Bon POS',
+            'type' => 'kontraktor',
+            'phone' => '081277778888',
+            'deposit_balance' => 0,
+            'debt_balance' => 0,
+            'is_active' => true,
+        ]);
+
+        $wallet = Wallet::where('type', 'cash')->first() ?: Wallet::create([
+            'name' => 'Kas Laci Test',
+            'type' => 'cash',
+            'initial_balance' => 0,
+            'is_active' => true,
+        ]);
+
+        // 1. POS jual 40 Kg (eceran) dengan customer_debt & manual_discount 10.000
+        $this->actingAs($kasir);
+        CashSession::create([
+            'user_id' => $kasir->id,
+            'start_time' => now(),
+            'opening_balance' => 50000,
+            'status' => 'open',
+        ]);
+
+        $resBon = $this->postJson(route('pos.store'), [
+            'idempotency_key' => (string) Str::uuid(),
+            'items' => [['product_id' => $prod->id, 'qty' => 40, 'unit_type' => 'secondary']],
+            'payment_method' => 'customer_debt',
+            'paid_amount' => 90000,
+            'manual_discount' => 10000,
+            'discount_note' => 'Diskon kontraktor',
+            'customer_id' => $cust->id,
+        ]);
+        $resBon->assertStatus(200)->assertJson(['status' => 'success']);
+        $saleId = (int) basename((string) $resBon->json('redirect'));
+
+        $this->assertEquals(90000, (float) $cust->fresh()->debt_balance);
+
+        // Pastikan HPP eceran pada Laporan Penjualan benar (50.000, bukan 50.000 * 40 = 2.000.000)
+        $this->actingAs($owner);
+        $reportView = $this->get(route('reports.sales.index', ['category_id' => $cat->id]));
+        $reportView->assertStatus(200);
+        $summary = $reportView->viewData('summary');
+        $this->assertEquals(50000, (float) $summary['total_hpp']);
+
+        $this->get(route('reports.sales.export'))->assertStatus(200);
+
+        // Void struk customer_debt mengembalikan debt_balance & stok
+        $this->post(route('pos.void', $saleId), ['reason' => 'Batal bon'])->assertRedirect();
+        $this->assertEquals(0, (float) $cust->fresh()->debt_balance);
+        $this->assertEquals(10, Product::withStock()->find($prod->id)->current_stock);
+
+        // 2. Pesanan Online: packed -> cancelled mengembalikan stok & kas
+        $order = PublicOrder::create([
+            'order_code' => 'PUB-REV-' . strtoupper(Str::random(4)),
+            'customer_name' => 'Pembeli Batal',
+            'phone' => '081200011122',
+            'shipping_method' => 'ambil',
+            'payment_method' => 'cash',
+            'total_amount' => 130000,
+            'status' => 'pending',
+        ]);
+        $order->items()->create([
+            'product_id' => $prod->id,
+            'qty' => 2,
+            'price_snapshot' => 65000,
+            'subtotal' => 130000,
+        ]);
+
+        $this->post(route('public-orders.status', $order->id), ['status' => 'packed'])->assertRedirect();
+        $this->assertEquals(8, Product::withStock()->find($prod->id)->current_stock);
+
+        $this->post(route('public-orders.status', $order->id), ['status' => 'cancelled'])->assertRedirect();
+        $this->assertEquals('cancelled', $order->fresh()->status);
+        $this->assertEquals(10, Product::withStock()->find($prod->id)->current_stock);
+        $this->get(route('public-orders.print', $order->id))->assertStatus(200)->assertSee($order->order_code);
+
+        // 3. Supplier Detail, PO Partial & Cancel, Manual Invoice, Batch Opname, Export
+        $this->get(route('master.suppliers.show', $sup->id))->assertStatus(200)->assertSee($sup->name);
+
+        $this->post(route('inventory.po.store'), [
+            'po_number' => 'PO-PART-' . Str::random(5),
+            'supplier_id' => $sup->id,
+            'order_date' => date('Y-m-d'),
+            'items' => [['product_id' => $prod->id, 'qty' => 5, 'price' => 50000]],
+        ])->assertRedirect(route('inventory.po.index'));
+
+        $po = \App\Models\PurchaseOrder::latest('id')->first();
+        $poItem = $po->items->first();
+        $this->post(route('inventory.po.receive', $po->id), [
+            'received_qtys' => [$poItem->id => 2],
+        ])->assertRedirect();
+        $this->assertEquals('partial', $po->fresh()->status);
+        $this->assertEquals(12, Product::withStock()->find($prod->id)->current_stock);
+
+        $this->get(route('inventory.po.print', $po->id))->assertStatus(200)->assertSee($po->po_number);
+
+        $this->post(route('inventory.invoices.store'), [
+            'supplier_id' => $sup->id,
+            'invoice_number' => 'INV-MAN-01',
+            'total_amount' => 250000,
+        ])->assertRedirect();
+
+        $this->post(route('inventory.stock.batch-opname'), [
+            'actual_stocks' => [$prod->id => 15],
+            'notes' => 'Opname Test',
+        ])->assertRedirect();
+        $this->assertEquals(15, Product::withStock()->find($prod->id)->current_stock);
+        $this->get(route('inventory.stock.export'))->assertStatus(200);
+
+        // 4. DailyReport posSummary, Project Payment & Invoice, Payroll Nonaktif Filter & Debt Status
+        $this->getJson(route('daily-reports.pos-summary'))->assertStatus(200)->assertJsonStructure(['uang_kecil', 'uang_besar', 'transfer']);
+
+        $project = Project::create([
+            'customer_id' => $cust->id,
+            'name' => 'Proyek Termin Test',
+            'budget' => 10000000,
+            'start_date' => date('Y-m-d'),
+            'status' => 'active',
+        ]);
+        $this->post(route('project.projects.payments.store', $project->id), [
+            'amount' => 2500000,
+            'payment_date' => date('Y-m-d'),
+            'wallet_id' => $wallet->id,
+            'notes' => 'DP 1',
+        ])->assertRedirect();
+        $this->assertEquals(2500000, (float) $project->fresh()->paid_amount);
+        $this->get(route('project.projects.invoice', $project->id))->assertStatus(200)->assertSee('Proyek Termin Test');
+
+        // Toggle Nonaktif user & pastikan tidak ikut payroll + terblokir login
+        $staffNonaktif = $this->createStaffUser('karyawan');
+        $this->post(route('setting.access.toggle', $staffNonaktif->id))->assertRedirect();
+        $this->assertEquals('nonaktif', $staffNonaktif->fresh()->employee_status);
+
+        \Illuminate\Support\Facades\Auth::logout();
+        $this->post('/login', ['email' => $staffNonaktif->email, 'password' => 'password'])
+            ->assertSessionHasErrors('email');
+
+        // Re-login owner & test manual backup + payroll export
+        $this->actingAs($owner);
+        $this->get(route('hr.payroll.export'))->assertStatus(200);
+        $this->get(route('finance.cash-ledger.export'))->assertStatus(200);
+
+        $backupRes = $this->post(route('setting.backup.run'));
+        $backupRes->assertRedirect()->assertSessionHas('success');
+        // Cleanup any snapshot created during test run so test stays clean
+        $latestBackup = collect(glob(storage_path('app/backups/*.sql')))->sortByDesc(fn ($p) => filemtime($p))->first();
+        if ($latestBackup) {
+            @unlink($latestBackup);
+        }
     }
 }

@@ -102,4 +102,33 @@ class DailyReportController extends Controller
     {
         return Excel::download(new DailyReportsExport, 'Laporan_Harian_' . date('Y-m-d') . '.xlsx');
     }
+
+    public function posSummary(Request $request)
+    {
+        $date = $request->get('date', date('Y-m-d'));
+
+        $openingCash = (float) \App\Models\CashSession::whereDate('start_time', $date)->sum('opening_balance');
+        $cashSales = (float) \App\Models\Payment::where('method', 'cash')
+            ->whereHas('sale', fn ($q) => $q->where('status', 'completed')->whereDate('created_at', $date))
+            ->sum('amount');
+        $transferSales = (float) \App\Models\Payment::where('method', 'transfer')
+            ->whereHas('sale', fn ($q) => $q->where('status', 'completed')->whereDate('created_at', $date))
+            ->sum('amount');
+
+        return response()->json([
+            'uang_kecil' => $openingCash,
+            'uang_besar' => $cashSales,
+            'transfer' => $transferSales,
+        ]);
+    }
+
+    public function destroy(DailyReport $dailyReport)
+    {
+        if ($dailyReport->status === 'verified') {
+            return back()->with('error', 'Laporan yang sudah diverifikasi tidak dapat dihapus.');
+        }
+
+        $dailyReport->delete();
+        return back()->with('success', 'Draft laporan harian berhasil dihapus.');
+    }
 }

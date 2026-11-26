@@ -67,9 +67,14 @@
         <h2 class="page-title">Kasir Point of Sale</h2>
         <p class="page-subtitle">Kasir aktif: <strong>{{ auth()->user()->name }}</strong> • Scan barcode (<kbd class="bg-white text-dark border px-1 rounded">F2</kbd>) atau klik produk untuk menambahkan.</p>
     </div>
-    <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#closeSessionModal">
-        <i class="ph ph-lock-key"></i> Tutup Kasir
-    </button>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-light border btn-sm" data-bs-toggle="modal" data-bs-target="#shiftSalesModal">
+            <i class="ph ph-receipt"></i> Struk Shift ({{ $recentSales->count() }})
+        </button>
+        <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#closeSessionModal">
+            <i class="ph ph-lock-key"></i> Tutup Kasir
+        </button>
+    </div>
 </div>
 
 <div x-data="posApp()" @keydown.window.f2.prevent="$refs.posSearch.focus()" class="row g-3">
@@ -165,7 +170,15 @@
                     <div class="d-flex align-items-center p-3 border-bottom gap-2">
                         <div class="flex-grow-1">
                             <div class="fw-semibold text-dark small" x-text="item.name"></div>
-                            <div class="text-muted tabular-nums" style="font-size: 0.76rem;" x-text="'Rp ' + formatRupiah(item.price) + ' (Stok: ' + item.stock + ')'"></div>
+                            <div class="d-flex align-items-center flex-wrap gap-1 mt-1">
+                                <span class="text-muted tabular-nums" style="font-size: 0.76rem;" x-text="'Rp ' + formatRupiah(item.price) + '/' + item.unit_label + ' (Maks: ' + item.stock + ')'"></span>
+                                <template x-if="item.has_secondary">
+                                    <select class="form-select form-select-sm py-0 px-1 bg-light border-secondary-subtle fw-semibold" style="width: auto; font-size: 0.72rem;" x-model="item.unit_type" @change="switchUnit(index)">
+                                        <option value="primary" x-text="item.unit"></option>
+                                        <option value="secondary" x-text="item.secondary_unit + ' (Eceran)'"></option>
+                                    </select>
+                                </template>
+                            </div>
                         </div>
 
                         <div class="d-flex align-items-center gap-1">
@@ -191,25 +204,39 @@
                         <select class="form-select form-select-sm" x-model="selectedCustomer">
                             <option value="">Pelanggan Umum</option>
                             @foreach($customers as $cust)
-                                <option value="{{ $cust->id }}" data-deposit="{{ (float) $cust->deposit_balance }}">
-                                    {{ $cust->name }} ({{ $cust->points }} ★{{ $cust->deposit_balance > 0 ? ' • Dep: Rp ' . number_format($cust->deposit_balance, 0, ',', '.') : '' }})
+                                <option value="{{ $cust->id }}" data-deposit="{{ (float) $cust->deposit_balance }}" data-debt="{{ (float) ($cust->debt_balance ?? 0) }}">
+                                    {{ $cust->name }} ({{ $cust->points }} ★{{ $cust->deposit_balance > 0 ? ' • Dep: Rp ' . number_format($cust->deposit_balance, 0, ',', '.') : '' }}{{ ($cust->debt_balance ?? 0) > 0 ? ' • Bon: Rp ' . number_format($cust->debt_balance, 0, ',', '.') : '' }})
                                 </option>
                             @endforeach
                         </select>
                         <div class="small text-success fw-semibold mt-1 tabular-nums" x-show="selectedCustomerDeposit > 0">
                             Saldo Deposit: Rp <span x-text="formatRupiah(selectedCustomerDeposit)"></span>
                         </div>
+                        <div class="small text-danger fw-semibold mt-1 tabular-nums" x-show="selectedCustomerDebt > 0">
+                            Sisa Bon: Rp <span x-text="formatRupiah(selectedCustomerDebt)"></span>
+                        </div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label small text-muted mb-1">Diskon / Karyawan</label>
+                        <label class="form-label small text-muted mb-1">Diskon Karyawan</label>
                         <select class="form-select form-select-sm" x-model="selectedEmployee" @change="calculateTotal()">
-                            <option value="">Tanpa Diskon</option>
+                            <option value="">Tanpa Diskon Karyawan</option>
                             @foreach($employees as $emp)
                                 <option value="{{ $emp->id }}" data-discount="{{ $emp->employee_discount }}">
                                     {{ $emp->name }} ({{ $emp->employee_discount }}%)
                                 </option>
                             @endforeach
                         </select>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label small text-muted mb-1">Potongan / Diskon Manual (Rp)</label>
+                        <input type="number" class="form-control form-control-sm tabular-nums" min="0" x-model.number="manualDiscount" @input="calculateTotal()" placeholder="0">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small text-muted mb-1">Catatan Diskon</label>
+                        <input type="text" class="form-control form-control-sm" x-model="discountNote" placeholder="Opsional: Diskon borongan">
                     </div>
                 </div>
 
@@ -222,6 +249,10 @@
                     <div class="d-flex justify-content-between small text-warning fw-semibold tabular-nums" x-show="discountAmount > 0">
                         <span>Diskon Karyawan</span>
                         <span x-text="'- Rp ' + formatRupiah(discountAmount)"></span>
+                    </div>
+                    <div class="d-flex justify-content-between small text-warning fw-semibold tabular-nums" x-show="manualDiscount > 0">
+                        <span>Potongan Manual</span>
+                        <span x-text="'- Rp ' + formatRupiah(manualDiscount)"></span>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mt-1 pt-2 border-top border-white border-opacity-10">
                         <span class="fw-semibold small text-uppercase" style="letter-spacing: 0.06em;">Total Tagihan</span>
@@ -236,10 +267,11 @@
                             <option value="cash">Tunai (Cash)</option>
                             <option value="transfer">Transfer Bank</option>
                             <option value="deposit">Potong Saldo Deposit</option>
+                            <option value="customer_debt">Bon / Piutang Pelanggan</option>
                             <option value="employee_debt">Potong Gaji</option>
                         </select>
                     </div>
-                    <div class="col-6" x-show="paymentMethod !== 'employee_debt' && paymentMethod !== 'deposit'">
+                    <div class="col-6" x-show="!['employee_debt', 'deposit', 'customer_debt'].includes(paymentMethod)">
                         <label class="form-label small text-muted mb-1">Masuk ke Dompet</label>
                         <select class="form-select form-select-sm" x-model="walletId">
                             <option value="">Otomatis</option>
@@ -250,7 +282,7 @@
                     </div>
                 </div>
 
-                <div x-show="paymentMethod !== 'employee_debt' && paymentMethod !== 'deposit'" class="mb-2">
+                <div x-show="!['employee_debt', 'deposit', 'customer_debt'].includes(paymentMethod)" class="mb-2">
                     <div class="input-group input-group-sm mb-2">
                         <span class="input-group-text">Uang Diterima</span>
                         <input type="number" class="form-control fw-bold tabular-nums" x-model.number="paidAmount" @input="paidManually = true" min="0">
@@ -269,7 +301,7 @@
 
                 <button type="button" class="btn btn-primary btn-lg w-100 mt-2"
                         @click="processCheckout()"
-                        :disabled="cart.length === 0 || (!['employee_debt', 'deposit'].includes(paymentMethod) && paidAmount < grandTotal) || isProcessing">
+                        :disabled="cart.length === 0 || (!['employee_debt', 'deposit', 'customer_debt'].includes(paymentMethod) && paidAmount < grandTotal) || isProcessing">
                     <i class="ph ph-check-circle" x-show="!isProcessing"></i>
                     <span x-text="isProcessing ? 'Memproses...' : 'Proses & Cetak Struk'"></span>
                 </button>
@@ -298,6 +330,12 @@
                             <span class="text-muted">Penjualan Tunai:</span>
                             <span class="fw-semibold text-success">+ Rp {{ number_format($cashSales, 0, ',', '.') }}</span>
                         </div>
+                        @if(($shiftPettyCashNet ?? 0) != 0)
+                        <div class="d-flex justify-content-between mb-1 small tabular-nums">
+                            <span class="text-muted">Mutasi Kas Laci Manual:</span>
+                            <span class="fw-semibold {{ $shiftPettyCashNet >= 0 ? 'text-success' : 'text-danger' }}">{{ $shiftPettyCashNet >= 0 ? '+' : '-' }} Rp {{ number_format(abs($shiftPettyCashNet), 0, ',', '.') }}</span>
+                        </div>
+                        @endif
                         <hr class="my-2">
                         <div class="d-flex justify-content-between tabular-nums">
                             <span class="fw-bold">Uang Seharusnya di Laci:</span>
@@ -313,6 +351,56 @@
                     <button type="submit" class="btn btn-danger">Tutup Kasir &amp; Rekonsiliasi</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Riwayat Struk Shift Ini -->
+<div class="modal fade" id="shiftSalesModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Riwayat Struk Shift Ini ({{ $recentSales->count() }})</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>No. Invoice</th>
+                                <th>Jam</th>
+                                <th>Pelanggan</th>
+                                <th class="text-end">Total</th>
+                                <th>Status</th>
+                                <th class="text-end">Struk</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($recentSales as $rs)
+                            <tr>
+                                <td class="fw-semibold font-monospace">{{ $rs->invoice_number }}</td>
+                                <td class="small text-muted">{{ $rs->created_at->format('H:i') }}</td>
+                                <td class="small">{{ $rs->customer->name ?? 'Umum' }}</td>
+                                <td class="text-end fw-bold tabular-nums">Rp {{ number_format($rs->total_amount, 0, ',', '.') }}</td>
+                                <td>
+                                    @if($rs->status === 'completed')
+                                        <span class="badge bg-success bg-opacity-10 text-success">Selesai</span>
+                                    @else
+                                        <span class="badge bg-danger bg-opacity-10 text-danger">Batal</span>
+                                    @endif
+                                </td>
+                                <td class="text-end">
+                                    <a href="{{ route('pos.receipt', $rs->id) }}" class="btn btn-sm btn-light border"><i class="ph ph-printer"></i> Buka</a>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr><td colspan="6" class="text-center py-4 text-muted">Belum ada transaksi pada shift ini.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -337,6 +425,8 @@
             selectedEmployee: '',
             selectedCustomer: '',
             discountAmount: 0,
+            manualDiscount: 0,
+            discountNote: '',
             noticeText: '',
             noticeType: 'success',
             noticeTimer: null,
@@ -345,6 +435,11 @@
                 if (!this.selectedCustomer) return 0;
                 const found = this.customersList.find(c => String(c.id) === String(this.selectedCustomer));
                 return found ? Number(found.deposit_balance || 0) : 0;
+            },
+            get selectedCustomerDebt() {
+                if (!this.selectedCustomer) return 0;
+                const found = this.customersList.find(c => String(c.id) === String(this.selectedCustomer));
+                return found ? Number(found.debt_balance || 0) : 0;
             },
 
             init() {
@@ -392,7 +487,7 @@
                 return this.cart.reduce((total, item) => total + (Number(item.price) * Number(item.qty || 0)), 0);
             },
             get grandTotal() {
-                return Math.max(0, this.subTotal - this.discountAmount);
+                return Math.max(0, this.subTotal - this.discountAmount - (Number(this.manualDiscount) || 0));
             },
             get changeAmount() {
                 return (Number(this.paidAmount) || 0) - this.grandTotal;
@@ -404,15 +499,25 @@
                 }
                 const existing = this.cart.find(item => item.id === product.id);
                 if (existing) {
-                    if (existing.qty >= product.current_stock) {
-                        this.notifyPos('Jumlah melebihi stok tersedia (' + product.current_stock + ').', 'error');
+                    if (existing.qty >= existing.stock) {
+                        this.notifyPos('Jumlah melebihi stok tersedia (' + existing.stock + ' ' + existing.unit_label + ').', 'error');
                         return;
                     }
                     existing.qty++;
                 } else {
+                    const hasSecondary = Boolean(product.secondary_unit && Number(product.secondary_price) > 0);
                     this.cart.push({
                         id: product.id,
                         name: product.name,
+                        unit: product.unit || 'pcs',
+                        primary_price: Number(product.selling_price),
+                        primary_stock: Number(product.current_stock),
+                        secondary_unit: product.secondary_unit || '',
+                        secondary_ratio: Number(product.secondary_ratio || 1),
+                        secondary_price: Number(product.secondary_price || 0),
+                        has_secondary: hasSecondary,
+                        unit_type: 'primary',
+                        unit_label: product.unit || 'pcs',
                         price: Number(product.selling_price),
                         stock: Number(product.current_stock),
                         qty: 1
@@ -422,11 +527,29 @@
                 this.calculateTotal();
                 this.notifyPos('+ ' + product.name + ' masuk keranjang.', 'success');
             },
+            switchUnit(index) {
+                const item = this.cart[index];
+                if (item.unit_type === 'secondary' && item.has_secondary) {
+                    const ratio = item.secondary_ratio > 1 ? item.secondary_ratio : 1;
+                    item.price = item.secondary_price;
+                    item.unit_label = item.secondary_unit;
+                    item.stock = ratio > 1 ? Math.floor(item.primary_stock * ratio) : item.primary_stock;
+                } else {
+                    item.unit_type = 'primary';
+                    item.price = item.primary_price;
+                    item.unit_label = item.unit;
+                    item.stock = item.primary_stock;
+                }
+                if (item.qty > item.stock) {
+                    item.qty = Math.max(1, item.stock);
+                }
+                this.calculateTotal();
+            },
             updateQty(index, newQty) {
                 const item = this.cart[index];
                 let qty = Math.max(1, parseInt(newQty) || 1);
                 if (qty > item.stock) {
-                    this.notifyPos('Stok tersedia hanya ' + item.stock, 'error');
+                    this.notifyPos('Stok tersedia hanya ' + item.stock + ' ' + item.unit_label, 'error');
                     qty = item.stock;
                 }
                 item.qty = qty;
@@ -490,7 +613,11 @@
                         return;
                     }
                 }
-                if (!['employee_debt', 'deposit'].includes(this.paymentMethod) && this.paidAmount < this.grandTotal) {
+                if (this.paymentMethod === 'customer_debt' && !this.selectedCustomer) {
+                    this.notifyPos('Silakan pilih pelanggan terlebih dahulu untuk metode Bon / Piutang Pelanggan.', 'error');
+                    return;
+                }
+                if (!['employee_debt', 'deposit', 'customer_debt'].includes(this.paymentMethod) && this.paidAmount < this.grandTotal) {
                     this.notifyPos('Uang pembayaran kurang dari total tagihan!', 'error');
                     return;
                 }
@@ -507,10 +634,16 @@
                         },
                         body: JSON.stringify({
                             idempotency_key: this.idempotencyKey,
-                            items: this.cart.map(item => ({ product_id: item.id, qty: item.qty })),
+                            items: this.cart.map(item => ({
+                                product_id: item.id,
+                                qty: item.qty,
+                                unit_type: item.unit_type || 'primary'
+                            })),
                             payment_method: this.paymentMethod,
                             wallet_id: this.walletId || null,
-                            paid_amount: ['employee_debt', 'deposit'].includes(this.paymentMethod) ? this.grandTotal : this.paidAmount,
+                            paid_amount: ['employee_debt', 'deposit', 'customer_debt'].includes(this.paymentMethod) ? this.grandTotal : this.paidAmount,
+                            manual_discount: Number(this.manualDiscount) || 0,
+                            discount_note: this.discountNote || null,
                             employee_id: this.selectedEmployee || null,
                             customer_id: this.selectedCustomer || null
                         })

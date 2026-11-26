@@ -28,13 +28,34 @@
                     @if($order->payment_method === 'transfer')
                         <div class="alert alert-info border-0 text-start mb-4">
                             <h6 class="fw-bold mb-2"><i class="ph ph-bank me-1"></i> Instruksi Pembayaran Transfer</h6>
-                            <p class="mb-1 small">Silakan transfer ke rekening resmi kami:</p>
-                            <div class="fw-bold text-primary fs-5">BCA: 123-456-7890</div>
-                            <div class="small">Atas Nama: <strong>Sentosa Bangunan</strong></div>
+                            @if($bankWallets->isNotEmpty())
+                                <p class="mb-2 small">Silakan transfer ke salah satu rekening resmi kami:</p>
+                                <div class="d-flex flex-column gap-2 mb-2">
+                                    @foreach($bankWallets as $bank)
+                                        <div class="bg-white border rounded p-2 px-3 d-flex justify-content-between align-items-center gap-2">
+                                            <div>
+                                                <div class="fw-bold text-dark small">{{ $bank->name }}</div>
+                                                <div class="fw-bold text-primary font-monospace fs-6">{{ $bank->account_number }}</div>
+                                                <div class="text-muted" style="font-size: 0.75rem;">a.n. <strong>{{ $bank->account_holder ?: $storeSetting->store_name }}</strong></div>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-light border" onclick="copyOrderCode(this, '{{ $bank->account_number }}')">
+                                                <i class="ph ph-copy"></i> Salin
+                                            </button>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                @if($storeSetting->bank_transfer_note)
+                                    <div class="small text-muted">{{ $storeSetting->bank_transfer_note }}</div>
+                                @endif
+                            @else
+                                <p class="mb-2 small">
+                                    Silakan hubungi kasir / admin <strong>{{ $storeSetting->store_name }}</strong> {{ $storeSetting->store_phone ? '(' . $storeSetting->store_phone . ')' : '' }} untuk konfirmasi nomor rekening tujuan transfer.
+                                </p>
+                            @endif
                             <hr class="my-2">
                             <div class="d-flex justify-content-between">
                                 <span class="small">Total Transfer:</span>
-                                <strong class="text-danger">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</strong>
+                                <strong class="text-danger tabular-nums">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</strong>
                             </div>
                         </div>
                     @else

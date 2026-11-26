@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Hr;
 
 use App\Http\Controllers\Controller;
+use App\Imports\EmployeesImport;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 
@@ -104,5 +106,30 @@ class EmployeeController extends Controller
         }
         $employee->delete();
         return redirect()->route('hr.employees.index')->with('success', 'Data karyawan berhasil dihapus.');
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls,xlsm,csv,txt|max:25600',
+        ]);
+
+        try {
+            @set_time_limit(180);
+            $importer = new EmployeesImport();
+            $ext = strtolower($request->file('file')->getClientOriginalExtension());
+
+            DB::transaction(function () use ($importer, $request, $ext) {
+                $importer->import($request->file('file')->getRealPath(), $ext);
+            });
+
+            if ($importer->createdCount === 0 && $importer->updatedCount === 0 && $importer->debtsImported === 0) {
+                return back()->with('error', 'Tidak ada data karyawan atau kasbon aktif yang terbaca di file ini.');
+            }
+
+            return back()->with('success', "Import karyawan selesai: {$importer->createdCount} baru, {$importer->updatedCount} diperbarui, {$importer->debtsImported} kasbon aktif tercatat.");
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal mengimport Excel karyawan: ' . $e->getMessage());
+        }
     }
 }

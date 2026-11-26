@@ -112,7 +112,7 @@
     <div class="col-lg-5">
         <div class="card h-100">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="ph ph-target text-accent me-2"></i>Progress Target Penjualan</span>
+                <span><i class="ph ph-target text-accent me-2"></i>Strategi &amp; Target Penjualan</span>
                 @if(in_array(auth()->user()->role, ['owner', 'admin']))
                     <a href="{{ route('setting.targets.index') }}" class="btn btn-light border btn-sm">Atur Target</a>
                 @endif
@@ -147,6 +147,16 @@
                             <span class="text-success fw-semibold">Target terlampaui!</span>
                         @endif
                     </div>
+                    @if($dailyTargetNeeded > 0 || ($salesTarget && $salesTarget->focusCategory))
+                        <div class="mt-2 pt-2 border-top d-flex flex-wrap justify-content-between gap-1 small text-muted">
+                            @if($dailyTargetNeeded > 0)
+                                <span class="tabular-nums">Pace ideal: <strong class="text-dark">Rp {{ number_format($dailyTargetNeeded, 0, ',', '.') }}/hr</strong></span>
+                            @endif
+                            @if($salesTarget && $salesTarget->focusCategory)
+                                <span class="badge bg-light text-dark border">Fokus: {{ $salesTarget->focusCategory->name }}</span>
+                            @endif
+                        </div>
+                    @endif
                 </div>
 
                 <div class="mt-4 pt-3 border-top">

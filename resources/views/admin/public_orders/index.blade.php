@@ -82,6 +82,19 @@
                         </td>
                         <td class="text-end">
                             <div class="d-inline-flex gap-1 align-items-center">
+                                @if($order->phone)
+                                    @php
+                                        $waNum = preg_replace('/[^0-9]/', '', $order->phone);
+                                        if (str_starts_with($waNum, '0')) { $waNum = '62' . substr($waNum, 1); }
+                                        $waMsg = rawurlencode("Halo {$order->customer_name}, pesanan Anda {$order->order_code} (Rp " . number_format($order->total_amount, 0, ',', '.') . ") saat ini berstatus: {$order->status_label}. — Sentosa Bangunan");
+                                    @endphp
+                                    <a href="https://wa.me/{{ $waNum }}?text={{ $waMsg }}" target="_blank" class="btn btn-sm btn-light border text-success" title="Konfirmasi WA Pembeli">
+                                        <i class="ph ph-whatsapp-logo"></i>
+                                    </a>
+                                @endif
+                                <a href="{{ route('public-orders.print', $order->id) }}" class="btn btn-sm btn-light border" title="Cetak Nota Pesanan">
+                                    <i class="ph ph-printer"></i>
+                                </a>
                                 <button type="button" class="btn btn-sm btn-light border" data-bs-toggle="modal" data-bs-target="#orderDetailModal{{ $order->id }}" title="Lihat Item">
                                     <i class="ph ph-eye"></i>
                                 </button>
@@ -109,6 +122,16 @@
                                         @csrf
                                         <input type="hidden" name="status" value="completed">
                                         <button type="submit" class="btn btn-sm btn-success">Selesai</button>
+                                    </form>
+                                @endif
+
+                                @if(in_array($order->status, ['pending', 'packed', 'shipped']))
+                                    <form action="{{ route('public-orders.status', $order->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Batalkan pesanan ini? Stok & kas akan otomatis dikembalikan jika sudah terpotong.')">
+                                        @csrf
+                                        <input type="hidden" name="status" value="cancelled">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Batalkan Pesanan">
+                                            <i class="ph ph-x"></i>
+                                        </button>
                                     </form>
                                 @endif
                             </div>

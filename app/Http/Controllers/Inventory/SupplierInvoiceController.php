@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
 use App\Models\CashLedger;
+use App\Models\Supplier;
 use App\Models\SupplierInvoice;
 use App\Models\SupplierPayment;
 use App\Models\Wallet;
@@ -12,13 +13,40 @@ use Illuminate\Support\Facades\DB;
 
 class SupplierInvoiceController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $invoices = SupplierInvoice::with('supplier')->latest()->paginate(15);
+        $query = SupplierInvoice::with('supplier')->latest();
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $invoices = $query->paginate(15)->withQueryString();
         $wallets = Wallet::where('is_active', true)->get();
+        $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
         $totalDebt = SupplierInvoice::where('status', '!=', 'paid')->sum(DB::raw('total_amount - paid_amount'));
 
-        return view('inventory.invoices.index', compact('invoices', 'wallets', 'totalDebt'));
+        return view('inventory.invoices.index', compact('invoices', 'wallets', 'suppliers', 'totalDebt'));
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'supplier_id' => 'required|exists:suppliers,id',
+            'invoice_number' => 'required|string|max:80',
+            'total_amount' => 'required|numeric|min:1',
+            'due_date' => 'nullable|date',
+        ]);
+
+        SupplierInvoice::create([
+            'supplier_id' => $request->supplier_id,
+            'invoice_number' => $request->invoice_number,
+            'total_amount' => $request->total_amount,
+            'paid_amount' => 0,
+            'due_date' => $request->due_date,
+            'status' => 'unpaid',
+        ]);
+
+        return back()->with('success', 'Nota hutang supplier manual berhasil dicatat.');
     }
 
     public function pay(Request $request, SupplierInvoice $invoice)

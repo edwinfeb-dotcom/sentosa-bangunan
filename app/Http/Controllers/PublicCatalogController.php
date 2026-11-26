@@ -6,6 +6,7 @@ use App\Models\CartItem;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\PublicOrder;
+use App\Models\Wallet;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -121,7 +122,9 @@ class PublicCatalogController extends Controller
                 ->toArray();
         }
 
-        return view('catalog.checkout', compact('user', 'customer', 'dbCart'));
+        $bankWallets = Wallet::activeCatalogBanks();
+
+        return view('catalog.checkout', compact('user', 'customer', 'dbCart', 'bankWallets'));
     }
 
     public function storeOrder(Request $request)
@@ -211,7 +214,8 @@ class PublicCatalogController extends Controller
     public function success($order_code)
     {
         $order = PublicOrder::with('items.product')->where('order_code', $order_code)->firstOrFail();
-        return view('catalog.success', compact('order'));
+        $bankWallets = Wallet::activeCatalogBanks();
+        return view('catalog.success', compact('order', 'bankWallets'));
     }
 
     public function track(Request $request)

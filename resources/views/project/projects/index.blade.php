@@ -8,9 +8,14 @@
         <h2 class="page-title">Proyek Kontraktor & Material</h2>
         <p class="page-subtitle">Pantau pagu anggaran kontraktor dan realisasi pemakaian material toko.</p>
     </div>
-    <a href="{{ route('project.projects.create') }}" class="btn btn-primary">
-        <i class="ph ph-plus"></i> Tambah Proyek
-    </a>
+    <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importProjectsModal">
+            <i class="ph ph-upload-simple"></i> Import Excel Proyek
+        </button>
+        <a href="{{ route('project.projects.create') }}" class="btn btn-primary">
+            <i class="ph ph-plus"></i> Tambah Proyek
+        </a>
+    </div>
 </div>
 
 <div class="card">
@@ -95,5 +100,31 @@
     @if($projects->hasPages())
         <div class="card-footer bg-white">{{ $projects->links() }}</div>
     @endif
+</div>
+
+<div class="modal fade" id="importProjectsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Import Master Proyek dari Excel</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ route('project.projects.import') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-body p-4">
+                    <div class="alert alert-info border-0 small mb-3">
+                        <div class="fw-bold mb-1">Mendukung File <code>MASTER PROJECT SENTOSA (.xlsx)</code>:</div>
+                        Sistem hanya mem-parsing sheet <code>MASTER</code> (<code>NAMA</code>, <code>SUMBER</code>, <code>DEPO</code>, <code>DEBET</code>, <code>SALDO</code>) sehingga tetap ringan dan tidak membebani memori server.
+                    </div>
+                    <label class="form-label fw-semibold">Pilih File Excel (.xlsx, .xlsm, .xls, .csv)</label>
+                    <input type="file" name="file" class="form-control" accept=".xlsx,.xlsm,.xls,.csv" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-success"><i class="ph ph-upload-simple"></i> Upload &amp; Import</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 @endsection

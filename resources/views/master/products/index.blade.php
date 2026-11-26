@@ -31,11 +31,11 @@
 <div class="card mb-4">
     <div class="card-body p-3">
         <form action="{{ route('master.products.index') }}" method="GET" class="row g-2 align-items-end">
-            <div class="col-md-5">
+            <div class="col-md-3">
                 <label class="form-label">Cari Nama atau Barcode</label>
-                <input type="text" name="search" class="form-control" value="{{ request('search') }}" placeholder="Ketik nama produk atau scan barcode...">
+                <input type="text" name="search" class="form-control" value="{{ request('search') }}" placeholder="Nama / barcode...">
             </div>
-            <div class="col-md-4">
+            <div class="col-6 col-md-3">
                 <label class="form-label">Kategori</label>
                 <select name="category_id" class="form-select">
                     <option value="">Semua Kategori</option>
@@ -44,7 +44,24 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-3 d-flex gap-2">
+            <div class="col-6 col-md-2">
+                <label class="form-label">Supplier</label>
+                <select name="supplier_id" class="form-select">
+                    <option value="">Semua Supplier</option>
+                    @foreach($suppliers ?? [] as $sup)
+                        <option value="{{ $sup->id }}" {{ request('supplier_id') == $sup->id ? 'selected' : '' }}>{{ $sup->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label">Kondisi Stok</label>
+                <select name="stock_status" class="form-select">
+                    <option value="">Semua Stok</option>
+                    <option value="critical" {{ request('stock_status') === 'critical' ? 'selected' : '' }}>Stok Kritis (&le; Min)</option>
+                    <option value="empty" {{ request('stock_status') === 'empty' ? 'selected' : '' }}>Stok Habis (0)</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2 d-flex gap-2">
                 <button type="submit" class="btn btn-primary w-100">Cari</button>
                 <a href="{{ route('master.products.index') }}" class="btn btn-light border">Reset</a>
             </div>
@@ -187,8 +204,15 @@
                         </ul>
                     </div>
 
-                    <label for="file" class="form-label">2. Pilih File Excel / CSV (.xlsx, .xls, .csv — Maks 25MB)</label>
-                    <input type="file" class="form-control" id="file" name="file" accept=".xlsx, .xls, .csv" required>
+                    <label for="file" class="form-label">2. Pilih File Excel / CSV (.xlsx, .xls, .xlsm, .csv — Maks 25MB)</label>
+                    <input type="file" class="form-control mb-3" id="file" name="file" accept=".xlsx, .xls, .xlsm, .csv" required>
+
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="ignore_template_sheet" value="1" id="ignoreTemplateSheet">
+                        <label class="form-check-label small" for="ignoreTemplateSheet">
+                            Hanya baca sheet <code>kategori</code> &amp; <code>BARANG</code> (centang jika memakai file <strong>UPDATE HARGA BARANG</strong> milik Owner agar baris contoh di sheet <code>Template Import</code> tidak ikut masuk)
+                        </label>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Batal</button>

@@ -9,13 +9,18 @@ class Project extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['customer_id', 'name', 'budget', 'start_date', 'end_date', 'status', 'is_active'];
+    protected $fillable = ['customer_id', 'name', 'budget', 'paid_amount', 'start_date', 'end_date', 'status', 'is_active'];
 
-    protected $casts = ['is_active' => 'boolean', 'start_date' => 'date', 'end_date' => 'date'];
+    protected $casts = ['is_active' => 'boolean', 'start_date' => 'date', 'end_date' => 'date', 'paid_amount' => 'decimal:2'];
 
     public function customer()
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(ProjectPayment::class)->latest('payment_date');
     }
 
     public function materials()

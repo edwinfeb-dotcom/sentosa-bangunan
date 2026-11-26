@@ -8,9 +8,14 @@
         <h2 class="page-title">Laporan Penjualan Detail</h2>
         <p class="page-subtitle">Rekap omzet, HPP, dan margin keuntungan per produk & kategori.</p>
     </div>
-    <button type="button" onclick="window.print()" class="btn btn-outline-primary">
-        <i class="ph ph-printer"></i> Cetak Laporan
-    </button>
+    <div class="d-flex gap-2">
+        <a href="{{ route('reports.sales.export', request()->query()) }}" class="btn btn-outline-success">
+            <i class="ph ph-file-xls"></i> Export CSV/Excel
+        </a>
+        <button type="button" onclick="window.print()" class="btn btn-outline-primary">
+            <i class="ph ph-printer"></i> Cetak Laporan
+        </button>
+    </div>
 </div>
 
 <!-- Filter -->
@@ -68,6 +73,31 @@
         </div>
     </div>
 </div>
+
+@if(($byPayment ?? collect())->isNotEmpty() || ($summary['online_count'] ?? 0) > 0)
+<div class="row g-3 mb-4">
+    <div class="col-md-8">
+        <div class="card h-100">
+            <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center gap-3 small">
+                <strong class="text-muted">Per Metode Bayar:</strong>
+                @foreach($byPayment ?? [] as $pm)
+                    <span class="badge bg-light text-dark border px-2 py-1 text-uppercase">
+                        {{ str_replace('_', ' ', $pm->method) }} ({{ $pm->trx_count }}x): <strong>Rp {{ number_format($pm->total_amount, 0, ',', '.') }}</strong>
+                    </span>
+                @endforeach
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center small">
+                <span class="text-muted fw-semibold">Pesanan Online ({{ $summary['online_count'] ?? 0 }}):</span>
+                <strong class="text-primary">Rp {{ number_format($summary['online_omzet'] ?? 0, 0, ',', '.') }}</strong>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
 
 <div class="row g-4">
     <!-- Rekap Per Kategori -->

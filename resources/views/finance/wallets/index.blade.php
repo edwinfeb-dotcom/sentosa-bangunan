@@ -91,7 +91,11 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Nomor Rekening (Opsional)</label>
-                        <input type="text" name="account_number" class="form-control" placeholder="Contoh: 123-456-7890">
+                        <input type="text" name="account_number" class="form-control font-monospace" placeholder="Contoh: 123-456-7890">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Atas Nama Pemilik Rekening (Opsional)</label>
+                        <input type="text" name="account_holder" class="form-control" placeholder="Contoh: Sentosa Bangunan">
                     </div>
                     <div>
                         <label class="form-label">Saldo Awal (Rp)</label>
@@ -185,15 +189,23 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Nomor Rekening</label>
-                        <input type="text" name="account_number" class="form-control" value="{{ $wallet->account_number }}">
+                        <input type="text" name="account_number" class="form-control font-monospace" value="{{ $wallet->account_number }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Atas Nama Pemilik Rekening</label>
+                        <input type="text" name="account_holder" class="form-control" value="{{ $wallet->account_holder }}">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Saldo Awal (Rp)</label>
                         <input type="number" name="initial_balance" class="form-control" value="{{ $wallet->initial_balance }}" min="0" required>
                     </div>
-                    <div class="form-check form-switch">
+                    <div class="form-check form-switch mb-2">
                         <input class="form-check-input" type="checkbox" name="is_active" value="1" id="walletActive{{ $wallet->id }}" {{ $wallet->is_active ? 'checked' : '' }}>
                         <label class="form-check-label" for="walletActive{{ $wallet->id }}">Dompet Aktif</label>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="show_on_catalog" value="1" id="walletCatalog{{ $wallet->id }}" {{ $wallet->show_on_catalog ? 'checked' : '' }}>
+                        <label class="form-check-label" for="walletCatalog{{ $wallet->id }}">Tampilkan ke Pembeli (Katalog Transfer)</label>
                     </div>
                 </div>
                 <div class="modal-footer">

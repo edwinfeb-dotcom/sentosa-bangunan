@@ -96,7 +96,9 @@ x-data="checkoutApp()"
                                     <input class="form-check-input mt-0" type="radio" name="payment_method" value="transfer" x-model="paymentMethod" required>
                                     <div>
                                         <div class="fw-bold">Transfer Bank</div>
-                                        <small class="text-muted">BCA Sentosa Bangunan</small>
+                                        <small class="text-muted">
+                                            {{ $bankWallets->isNotEmpty() ? $bankWallets->pluck('name')->implode(' / ') : 'Konfirmasi rekening ke toko' }}
+                                        </small>
                                     </div>
                                 </label>
                             </div>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Project;
 
 use App\Http\Controllers\Controller;
+use App\Imports\ProjectsImport;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\Project;
@@ -53,8 +54,9 @@ class ProjectController extends Controller
 
     public function show(Project $project)
     {
-        $project->load(['customer', 'materials.product', 'materials.user']);
+        $project->load(['customer', 'materials.product', 'materials.user', 'payments.user', 'payments.wallet']);
         $products = Product::withStock()->where('is_active', true)->orderBy('name')->get();
+        $wallets = \App\Models\Wallet::where('is_active', true)->orderBy('type')->orderBy('name')->get();
 
         $netTakenMaterials = $project->materials
             ->groupBy('product_id')
@@ -71,7 +73,51 @@ class ProjectController extends Controller
             ->filter(fn ($row) => $row['net_qty'] > 0)
             ->values();
 
-        return view('project.projects.show', compact('project', 'products', 'netTakenMaterials'));
+        return view('project.projects.show', compact('project', 'products', 'netTakenMaterials', 'wallets'));
+    }
+
+    public function recordPayment(Request $request, Project $project)
+    {
+        $request->validate([
+            'amount' => 'required|numeric|min:1',
+            'payment_date' => 'required|date',
+            'wallet_id' => 'nullable|exists:wallets,id',
+            'notes' => 'nullable|string|max:255',
+        ]);
+
+        DB::transaction(function () use ($request, $project) {
+            $walletId = $request->wallet_id ?: \App\Models\Wallet::where('is_active', true)->value('id');
+            $payment = \App\Models\ProjectPayment::create([
+                'project_id' => $project->id,
+                'user_id' => auth()->id(),
+                'wallet_id' => $walletId,
+                'amount' => $request->amount,
+                'payment_date' => $request->payment_date,
+                'notes' => $request->notes,
+            ]);
+
+            $project->increment('paid_amount', $request->amount);
+
+            \App\Models\CashLedger::create([
+                'user_id' => auth()->id(),
+                'wallet_id' => $walletId,
+                'type' => 'in',
+                'category' => 'pembayaran_proyek',
+                'amount' => $request->amount,
+                'description' => "Pembayaran Proyek: {$project->name}" . ($request->notes ? " ({$request->notes})" : ''),
+                'reference_type' => \App\Models\ProjectPayment::class,
+                'reference_id' => $payment->id,
+                'date' => $request->payment_date,
+            ]);
+        });
+
+        return back()->with('success', 'Pembayaran / termin proyek berhasil dicatat ke Buku Kas.');
+    }
+
+    public function printInvoice(Project $project)
+    {
+        $project->load(['customer', 'materials.product', 'payments.wallet']);
+        return view('project.projects.invoice', compact('project'));
     }
 
     public function storeMaterial(Request $request, Project $project)
@@ -218,5 +264,30 @@ class ProjectController extends Controller
     {
         $project->delete();
         return redirect()->route('project.projects.index')->with('success', 'Proyek berhasil dihapus.');
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls,xlsm,csv,txt|max:25600',
+        ]);
+
+        try {
+            @set_time_limit(180);
+            $importer = new ProjectsImport();
+            $ext = strtolower($request->file('file')->getClientOriginalExtension());
+
+            DB::transaction(function () use ($importer, $request, $ext) {
+                $importer->import($request->file('file')->getRealPath(), $ext);
+            });
+
+            if ($importer->createdCount === 0 && $importer->updatedCount === 0) {
+                return back()->with('error', 'Tidak ada data proyek yang terbaca. Pastikan sheet MASTER memiliki kolom NAMA / SUMBER / DEPO.');
+            }
+
+            return back()->with('success', "Import proyek selesai: {$importer->createdCount} proyek baru, {$importer->updatedCount} diperbarui.");
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal mengimport Excel proyek: ' . $e->getMessage());
+        }
     }
 }

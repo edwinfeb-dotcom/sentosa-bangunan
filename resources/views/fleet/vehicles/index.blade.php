@@ -29,6 +29,7 @@
                         <th>No Polisi</th>
                         <th>Nama Kendaraan</th>
                         <th>Tipe Armada</th>
+                        <th>Servis &amp; Pajak/KIR</th>
                         <th>Status</th>
                         <th class="text-end">Aksi</th>
                     </tr>
@@ -47,6 +48,17 @@
                                 <span class="badge bg-success bg-opacity-10 text-success">Komersial</span>
                             @else
                                 <span class="badge bg-warning bg-opacity-10 text-warning">Vendor Luar</span>
+                            @endif
+                        </td>
+                        <td class="small">
+                            @if($vehicle->next_service_at)
+                                <div>Servis: <strong>{{ $vehicle->next_service_at->format('d/m/Y') }}</strong></div>
+                            @endif
+                            @if($vehicle->tax_due_at)
+                                <div class="text-muted">Pajak/KIR: {{ $vehicle->tax_due_at->format('d/m/Y') }}</div>
+                            @endif
+                            @if(!$vehicle->next_service_at && !$vehicle->tax_due_at)
+                                <span class="text-muted">-</span>
                             @endif
                         </td>
                         <td>
@@ -71,7 +83,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="text-center py-5 text-muted">
+                        <td colspan="6" class="text-center py-5 text-muted">
                             <i class="ph ph-truck fs-1 d-block mb-2 text-secondary opacity-50"></i>
                             Belum ada data kendaraan.
                         </td>

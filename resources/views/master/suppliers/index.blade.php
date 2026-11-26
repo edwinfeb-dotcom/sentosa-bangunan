@@ -47,6 +47,9 @@
                             @endif
                         </td>
                         <td class="text-end">
+                            <a href="{{ route('master.suppliers.show', $supplier->id) }}" class="btn btn-sm btn-light border" title="Detail &amp; Riwayat">
+                                <i class="ph ph-eye text-dark"></i>
+                            </a>
                             <a href="{{ route('master.suppliers.edit', $supplier->id) }}" class="btn btn-sm btn-light border" title="Edit">
                                 <i class="ph ph-pencil-simple text-primary"></i>
                             </a>

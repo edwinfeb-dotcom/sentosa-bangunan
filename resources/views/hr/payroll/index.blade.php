@@ -12,9 +12,14 @@
         <h2 class="page-title">Payroll &amp; Bonus Karyawan</h2>
         <p class="page-subtitle">Atur gaji full bulanan karyawan, potong otomatis hari bolos (Alpha), tambah bonus manual, dan cetak slip gaji.</p>
     </div>
-    <button type="button" class="btn btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#salaryConfigPanel">
-        <i class="ph ph-sliders"></i> Atur Gaji Full &amp; Potongan Bolos
-    </button>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{{ route('hr.payroll.export', request()->query()) }}" class="btn btn-outline-success">
+            <i class="ph ph-file-xls"></i> Export CSV
+        </a>
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#salaryConfigPanel">
+            <i class="ph ph-sliders"></i> Atur Gaji Full &amp; Potongan Bolos
+        </button>
+    </div>
 </div>
 
 <!-- Panel Pengaturan Gaji Full Bulanan oleh Owner -->

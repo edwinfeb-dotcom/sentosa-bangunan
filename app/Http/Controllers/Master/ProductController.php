@@ -35,10 +35,21 @@ class ProductController extends Controller
             $query->where('category_id', $request->category_id);
         }
 
+        if ($request->filled('supplier_id')) {
+            $query->where('supplier_id', $request->supplier_id);
+        }
+
+        if ($request->stock_status === 'critical') {
+            $query->whereRaw("COALESCE((SELECT SUM(CASE WHEN type = 'in' THEN qty ELSE -qty END) FROM stock_ledgers WHERE stock_ledgers.product_id = products.id), 0) <= products.stock_minimum");
+        } elseif ($request->stock_status === 'empty') {
+            $query->whereRaw("COALESCE((SELECT SUM(CASE WHEN type = 'in' THEN qty ELSE -qty END) FROM stock_ledgers WHERE stock_ledgers.product_id = products.id), 0) <= 0");
+        }
+
         $products = $query->latest()->paginate(10)->withQueryString();
         $categories = Category::where('is_active', true)->orderBy('name')->get();
+        $suppliers = \App\Models\Supplier::where('is_active', true)->orderBy('name')->get();
 
-        return view('master.products.index', compact('products', 'categories'));
+        return view('master.products.index', compact('products', 'categories', 'suppliers'));
     }
 
     public function create()
@@ -181,20 +192,21 @@ class ProductController extends Controller
     public function import(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv,txt|max:25600',
+            'file' => 'required|mimes:xlsx,xls,xlsm,csv,txt|max:25600',
         ]);
 
         $uploadedFile = $request->file('file');
         $ext = strtolower($uploadedFile->getClientOriginalExtension());
         $filePath = $uploadedFile->getRealPath();
+        $ignoreTemplateSheet = $request->boolean('ignore_template_sheet');
 
         try {
             @set_time_limit(180);
             $import = new ProductsImport();
             $imageImporter = new ProductImagesImport();
 
-            DB::transaction(function () use ($import, $imageImporter, $uploadedFile, $filePath, $ext) {
-                $this->runProductDataImport($import, $uploadedFile, $filePath, $ext);
+            DB::transaction(function () use ($import, $imageImporter, $uploadedFile, $filePath, $ext, $ignoreTemplateSheet) {
+                $this->runProductDataImport($import, $uploadedFile, $filePath, $ext, $ignoreTemplateSheet);
 
                 // Jika file .xlsx juga berisi foto tertanam, langsung impor gambarnya sekaligus!
                 if (in_array($ext, ['xlsx', 'xls'], true)) {
@@ -286,9 +298,19 @@ class ProductController extends Controller
         }
     }
 
-    private function runProductDataImport(ProductsImport $import, \Illuminate\Http\UploadedFile $uploadedFile, string $filePath, string $ext): void
+    private function runProductDataImport(ProductsImport $import, \Illuminate\Http\UploadedFile $uploadedFile, string $filePath, string $ext, bool $ignoreTemplateSheet = false): void
     {
-        if ($ext === 'xlsx' && !class_exists('ZipArchive')) {
+        if ($ignoreTemplateSheet && in_array($ext, ['xlsx', 'xlsm'], true)) {
+            $sheets = SimpleXlsxReader::readNamedSheetsAsNumericRows($filePath, ['kategori', 'BARANG']);
+            if (!empty($sheets)) {
+                foreach ($sheets as $sheetRows) {
+                    $import->array($sheetRows);
+                }
+                return;
+            }
+        }
+
+        if (in_array($ext, ['xlsx', 'xlsm'], true) && !class_exists('ZipArchive')) {
             $sheets = SimpleXlsxReader::readAllSheetsAsNumericRows($filePath);
             if (empty($sheets)) {
                 throw new \RuntimeException('File .xlsx tidak dapat dibaca atau kosong.');

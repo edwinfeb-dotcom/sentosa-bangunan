@@ -53,4 +53,16 @@ class AccessController extends Controller
 
         return redirect()->route('setting.access.index')->with('success', 'Akses dan sandi untuk ' . $user->name . ' berhasil diperbarui.');
     }
+
+    public function toggleStatus(User $user)
+    {
+        if ($user->id === auth()->id()) {
+            return back()->with('error', 'Anda tidak dapat menonaktifkan akun Anda sendiri yang sedang login.');
+        }
+
+        $next = $user->employee_status === 'nonaktif' ? 'aktif' : 'nonaktif';
+        $user->update(['employee_status' => $next]);
+
+        return back()->with('success', 'Status login ' . $user->name . ' diubah menjadi: ' . strtoupper($next) . '.');
+    }
 }

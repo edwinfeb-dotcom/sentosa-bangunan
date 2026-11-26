@@ -76,6 +76,12 @@
                     </h2>
                     <div id="step2" class="accordion-collapse collapse" data-bs-parent="#reportAccordion">
                         <div class="accordion-body bg-light">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="small text-muted">Isi manual sesuai fisik kasir atau tarik otomatis dari POS hari ini:</span>
+                                <button type="button" class="btn btn-sm btn-outline-primary" @click="fetchPosSummary()">
+                                    <i class="ph ph-magic-wand"></i> Isi Otomatis dari POS
+                                </button>
+                            </div>
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label class="form-label small">Uang Kecil (Rp)</label>
@@ -250,6 +256,20 @@
             },
             formatRupiah(value) {
                 return new Intl.NumberFormat('id-ID').format(value || 0);
+            },
+            async fetchPosSummary() {
+                const dateEl = document.querySelector('input[name="date"]');
+                const d = dateEl ? dateEl.value : '';
+                try {
+                    const res = await fetch(`{{ route('daily-reports.pos-summary') }}?date=${encodeURIComponent(d)}`, {
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    this.uangKecil = Number(data.uang_kecil || 0);
+                    this.uangBesar = Number(data.uang_besar || 0);
+                    this.transfer = Number(data.transfer || 0);
+                } catch (e) {}
             }
         }
     }

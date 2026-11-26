@@ -8,9 +8,14 @@
         <h2 class="page-title">Perjalanan Armada</h2>
         <p class="page-subtitle">Catat penugasan driver, ceklis kendaraan, biaya operasional, dan komisi perjalanan.</p>
     </div>
-    <a href="{{ route('fleet.jobs.create') }}" class="btn btn-primary">
-        <i class="ph ph-plus"></i> Buat Perjalanan
-    </a>
+    <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importFleetModal">
+            <i class="ph ph-upload-simple"></i> Import Excel Angkutan
+        </button>
+        <a href="{{ route('fleet.jobs.create') }}" class="btn btn-primary">
+            <i class="ph ph-plus"></i> Buat Perjalanan
+        </a>
+    </div>
 </div>
 
 <!-- Ringkasan Angkutan -->
@@ -139,14 +144,29 @@
                             @endif
                         </td>
                         <td class="text-end">
-                            @if($job->status === 'on_trip')
-                                <form action="{{ route('fleet.jobs.complete', $job->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Selesaikan perjalanan ini?')">
+                            <div class="d-inline-flex gap-1 align-items-center">
+                                <a href="{{ route('fleet.jobs.waybill', $job->id) }}" class="btn btn-sm btn-light border" title="Cetak Surat Jalan">
+                                    <i class="ph ph-printer"></i>
+                                </a>
+                                <a href="{{ route('fleet.jobs.edit', $job->id) }}" class="btn btn-sm btn-light border" title="Edit Perjalanan">
+                                    <i class="ph ph-pencil-simple text-primary"></i>
+                                </a>
+                                @if($job->status === 'on_trip')
+                                    <form action="{{ route('fleet.jobs.complete', $job->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Selesaikan perjalanan ini?')">
+                                        @csrf
+                                        <button type="submit" class="btn btn-sm btn-success">Selesai</button>
+                                    </form>
+                                @else
+                                    <small class="text-muted me-1">{{ $job->return_date ? $job->return_date->format('d/m') : '-' }}</small>
+                                @endif
+                                <form action="{{ route('fleet.jobs.destroy', $job->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus catatan perjalanan ini?')">
                                     @csrf
-                                    <button type="submit" class="btn btn-sm btn-success">Selesai</button>
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-light border text-danger" title="Hapus">
+                                        <i class="ph ph-trash"></i>
+                                    </button>
                                 </form>
-                            @else
-                                <small class="text-muted">Kembali: {{ $job->return_date ? $job->return_date->format('d/m H:i') : '-' }}</small>
-                            @endif
+                            </div>
                         </td>
                     </tr>
                     @empty
@@ -166,5 +186,104 @@
         {{ $jobs->links() }}
     </div>
     @endif
+</div>
+
+<!-- Master Tarif Ongkos Kirim Armada -->
+<div class="card mt-4">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span><i class="ph ph-currency-circle-dollar text-accent me-2"></i>Daftar Tarif Ongkos Angkutan ({{ ($rates ?? collect())->count() }} Rute)</span>
+    </div>
+    <div class="card-body p-4">
+        <form action="{{ route('fleet.rates.store') }}" method="POST" class="row g-2 align-items-end mb-4">
+            @csrf
+            <div class="col-md-3">
+                <label class="form-label small">Asal / Kuari</label>
+                <input type="text" name="origin" class="form-control form-control-sm" value="SELABA" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Tujuan</label>
+                <input type="text" name="destination" class="form-control form-control-sm" placeholder="Contoh: Pasar Area / Ngabang" required>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small">Tarif 4 Kubik (Rp)</label>
+                <input type="number" name="rate_4_m3" class="form-control form-control-sm tabular-nums" min="0" value="0" required>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small">Tarif 6 Kubik (Rp)</label>
+                <input type="number" name="rate_6_m3" class="form-control form-control-sm tabular-nums" min="0" value="0" required>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-dark btn-sm w-100">Simpan Tarif</button>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th>Asal</th>
+                        <th>Tujuan</th>
+                        <th class="text-end">4 Kubik (m³)</th>
+                        <th class="text-end">6 Kubik (m³)</th>
+                        <th class="text-end">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($rates ?? [] as $rate)
+                        <tr>
+                            <td class="fw-semibold">{{ $rate->origin }}</td>
+                            <td>{{ $rate->destination }}</td>
+                            <td class="text-end tabular-nums">Rp {{ number_format($rate->rate_4_m3, 0, ',', '.') }}</td>
+                            <td class="text-end tabular-nums">Rp {{ number_format($rate->rate_6_m3, 0, ',', '.') }}</td>
+                            <td class="text-end">
+                                <form action="{{ route('fleet.rates.destroy', $rate->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus tarif rute ini?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-light border text-danger py-0 px-2"><i class="ph ph-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5" class="text-center py-3 text-muted small">Belum ada tarif rute angkutan tersimpan. Silakan tambahkan atau import Excel Angkutan.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Import Angkutan -->
+<div class="modal fade" id="importFleetModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Import Excel Angkutan &amp; Tarif Rute</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ route('fleet.jobs.import') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-body p-4">
+                    <div class="alert alert-info border-0 small mb-3">
+                        <div class="fw-bold mb-1">Mendukung File <code>ANGKUTAN (.xlsx)</code>:</div>
+                        Otomatis membaca sheet <code>HARGA</code> (daftar ongkos 4 Kubik &amp; 6 Kubik) dan mendaftarkan armada toko (DAM, Strada, Kijang, Carry).
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Pilih File Excel (.xlsx, .xls, .xlsm, .csv)</label>
+                        <input type="file" name="file" class="form-control" accept=".xlsx,.xlsm,.xls,.csv" required>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="import_trips" value="1" id="importFleetTrips">
+                        <label class="form-check-label small" for="importFleetTrips">
+                            Sekaligus import riwayat perjalanan dari sheet <code>DAM</code> &amp; <code>STRADA</code>
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-success"><i class="ph ph-upload-simple"></i> Upload &amp; Import</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 @endsection

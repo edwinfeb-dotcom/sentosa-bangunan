@@ -27,6 +27,7 @@
                         <th>Nama Karyawan</th>
                         <th>Email Login</th>
                         <th>Role Saat Ini</th>
+                        <th>Status Login</th>
                         <th class="text-end">Aksi</th>
                     </tr>
                 </thead>
@@ -46,10 +47,27 @@
                                 <span class="badge bg-secondary text-white text-uppercase">{{ $user->role }}</span>
                             @endif
                         </td>
+                        <td>
+                            @if($user->employee_status === 'nonaktif')
+                                <span class="badge bg-danger bg-opacity-10 text-danger">Nonaktif</span>
+                            @else
+                                <span class="badge bg-success bg-opacity-10 text-success">Aktif</span>
+                            @endif
+                        </td>
                         <td class="text-end">
-                            <button type="button" class="btn btn-sm btn-light border" data-bs-toggle="modal" data-bs-target="#editAccessModal{{ $user->id }}">
-                                <i class="ph ph-key text-primary"></i> Ubah Akses / Reset Sandi
-                            </button>
+                            <div class="d-inline-flex gap-1 align-items-center">
+                                @if($user->id !== auth()->id())
+                                <form action="{{ route('setting.access.toggle', $user->id) }}" method="POST" class="d-inline">
+                                    @csrf
+                                    <button type="submit" class="btn btn-sm btn-light border {{ $user->employee_status === 'nonaktif' ? 'text-success' : 'text-danger' }}">
+                                        {{ $user->employee_status === 'nonaktif' ? 'Aktifkan' : 'Nonaktifkan' }}
+                                    </button>
+                                </form>
+                                @endif
+                                <button type="button" class="btn btn-sm btn-light border" data-bs-toggle="modal" data-bs-target="#editAccessModal{{ $user->id }}">
+                                    <i class="ph ph-key text-primary"></i> Ubah Akses / Reset Sandi
+                                </button>
+                            </div>
                         </td>
                     </tr>
                     @endforeach

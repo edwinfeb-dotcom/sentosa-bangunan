@@ -151,56 +151,7 @@ class ProductsImport implements ToArray
             return null;
         }
 
-        // 1. Tabel Referensi Kategori Owner: [..., KODE, KATEGORI, ...]
-        $kodeKatIdx = $this->findColumn($normalized, ['KODE']);
-        $katIdx = $this->findColumn($normalized, ['KATEGORI']);
-        if ($kodeKatIdx !== null && $katIdx !== null && $katIdx === $kodeKatIdx + 1) {
-            return [
-                'mode' => 'categories',
-                'map' => ['code' => $kodeKatIdx, 'name' => $katIdx],
-            ];
-        }
-
-        // 2. Tabel Referensi Supplier Owner: [..., KODE, SUPLAYER / DISTRIBUTOR, ...]
-        $supIdx = $this->findColumn($normalized, ['SUPLAYER / DISTRIBUTOR', 'SUPLAYER', 'SUPPLIER / DISTRIBUTOR']);
-        if ($kodeKatIdx !== null && $supIdx !== null && $supIdx > $kodeKatIdx) {
-            return [
-                'mode' => 'suppliers',
-                'map' => [
-                    'code' => $kodeKatIdx,
-                    'name' => $supIdx,
-                    'phone' => $this->findColumn($normalized, ['HP', 'TELP', 'NO HP', 'TELEPON']),
-                    'address' => $this->findColumn($normalized, ['ALAMAT', 'ADDRESS']),
-                ],
-            ];
-        }
-
-        // 3. Template 19-Kolom Owner: [ID Kategori Angka, Nama Barang, Harga Beli, ...]
-        $idKatIdx = $this->findColumn($normalized, ['ID KATEGORI ANGKA', 'ID KATEGORI']);
-        $namaBarangIdx = $this->findColumn($normalized, ['NAMA BARANG']);
-        if ($idKatIdx !== null && $namaBarangIdx !== null) {
-            return [
-                'mode' => 'owner_template',
-                'map' => [
-                    'category' => $idKatIdx,
-                    'name' => $namaBarangIdx,
-                    'purchase_price' => $this->findColumn($normalized, ['HARGA BELI', 'MODAL']),
-                    'warehouse' => $this->findColumn($normalized, ['NAMA GUDANG', 'GUDANG']),
-                    'rack' => $this->findColumn($normalized, ['NAMA RAK', 'RAK']),
-                    'supplier' => $this->findColumn($normalized, ['NAMA SUPPLIER UTAMA', 'SUPPLIER UTAMA', 'SUPPLIER']),
-                    'stock' => $this->findColumn($normalized, ['STOK AWAL', 'STOK']),
-                    'min_stock' => $this->findColumn($normalized, ['BATAS MINIMUM STOK', 'MINIMAL STOK', 'MIN']),
-                    'max_stock' => $this->findColumn($normalized, ['TARGET MAKSIMUM STOK', 'MAKSIMUM STOK', 'MAX']),
-                    'unit' => $this->findColumn($normalized, ['SATUAN 1 TERBESAR', 'SATUAN 1', 'SATUAN']),
-                    'margin_code' => $this->findColumn($normalized, ['KODE MARGIN 1', 'KODE MARGIN 1 (CTH: K5)', 'KODE MARGIN']),
-                    'unit_2' => $this->findColumn($normalized, ['SATUAN 2 SEDANG', 'SATUAN 2']),
-                    'ratio_2' => $this->findColumn($normalized, ['RASIO 2 KE SATUAN 3', 'RASIO 2']),
-                    'margin_2' => $this->findColumn($normalized, ['KODE MARGIN 2']),
-                ],
-            ];
-        }
-
-        // 4. Master Produk Owner: [NO, KTG, ID ITEM / BARCODE, ITEM, SATUAN, RUMUS, MODAL, KODE, HARGA JUAL, RASIO, M ECER, KODE 2, RUM 2, J ECER, SUPLAYER 1, ...]
+        // 1. Master Produk Owner harus dicek lebih dulu sebelum Kategori/Supplier karena baris header BARANG juga memuat kolom KODE dan SUPLAYER 1
         $ktgIdx = $this->findColumn($normalized, ['KTG']);
         $itemIdx = $this->findColumn($normalized, ['ITEM']);
         if ($ktgIdx !== null && $itemIdx !== null) {
@@ -228,6 +179,55 @@ class ProductsImport implements ToArray
                     'max_stock' => $this->findColumn($normalized, ['MAX', 'MAKSIMAL STOK']),
                     'min_stock' => $this->findColumn($normalized, ['MIN', 'MINIMAL STOK']),
                     'stock' => $this->findColumn($normalized, ['STOK', 'STOK AWAL']),
+                ],
+            ];
+        }
+
+        // 2. Template 19-Kolom Owner: [ID Kategori Angka, Nama Barang, Harga Beli, ...]
+        $idKatIdx = $this->findColumn($normalized, ['ID KATEGORI ANGKA', 'ID KATEGORI']);
+        $namaBarangIdx = $this->findColumn($normalized, ['NAMA BARANG']);
+        if ($idKatIdx !== null && $namaBarangIdx !== null) {
+            return [
+                'mode' => 'owner_template',
+                'map' => [
+                    'category' => $idKatIdx,
+                    'name' => $namaBarangIdx,
+                    'purchase_price' => $this->findColumn($normalized, ['HARGA BELI', 'MODAL']),
+                    'warehouse' => $this->findColumn($normalized, ['NAMA GUDANG', 'GUDANG']),
+                    'rack' => $this->findColumn($normalized, ['NAMA RAK', 'RAK']),
+                    'supplier' => $this->findColumn($normalized, ['NAMA SUPPLIER UTAMA', 'SUPPLIER UTAMA', 'SUPPLIER']),
+                    'stock' => $this->findColumn($normalized, ['STOK AWAL', 'STOK']),
+                    'min_stock' => $this->findColumn($normalized, ['BATAS MINIMUM STOK', 'MINIMAL STOK', 'MIN']),
+                    'max_stock' => $this->findColumn($normalized, ['TARGET MAKSIMUM STOK', 'MAKSIMUM STOK', 'MAX']),
+                    'unit' => $this->findColumn($normalized, ['SATUAN 1 TERBESAR', 'SATUAN 1', 'SATUAN']),
+                    'margin_code' => $this->findColumn($normalized, ['KODE MARGIN 1', 'KODE MARGIN 1 (CTH: K5)', 'KODE MARGIN']),
+                    'unit_2' => $this->findColumn($normalized, ['SATUAN 2 SEDANG', 'SATUAN 2']),
+                    'ratio_2' => $this->findColumn($normalized, ['RASIO 2 KE SATUAN 3', 'RASIO 2']),
+                    'margin_2' => $this->findColumn($normalized, ['KODE MARGIN 2']),
+                ],
+            ];
+        }
+
+        // 3. Tabel Referensi Kategori Owner: [..., KODE, KATEGORI, ...]
+        $kodeKatIdx = $this->findColumn($normalized, ['KODE']);
+        $katIdx = $this->findColumn($normalized, ['KATEGORI']);
+        if ($kodeKatIdx !== null && $katIdx !== null && $katIdx === $kodeKatIdx + 1) {
+            return [
+                'mode' => 'categories',
+                'map' => ['code' => $kodeKatIdx, 'name' => $katIdx],
+            ];
+        }
+
+        // 4. Tabel Referensi Supplier Owner: [..., KODE, SUPLAYER / DISTRIBUTOR, ...]
+        $supIdx = $this->findColumn($normalized, ['SUPLAYER / DISTRIBUTOR', 'SUPLAYER', 'SUPPLIER / DISTRIBUTOR']);
+        if ($kodeKatIdx !== null && $supIdx !== null && $supIdx > $kodeKatIdx) {
+            return [
+                'mode' => 'suppliers',
+                'map' => [
+                    'code' => $kodeKatIdx,
+                    'name' => $supIdx,
+                    'phone' => $this->findColumn($normalized, ['HP', 'TELP', 'NO HP', 'TELEPON']),
+                    'address' => $this->findColumn($normalized, ['ALAMAT', 'ADDRESS']),
                 ],
             ];
         }

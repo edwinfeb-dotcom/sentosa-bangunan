@@ -49,9 +49,7 @@
                         <span class="d-flex align-items-center gap-2">
                             <i class="ph ph-globe"></i> <span>Pesanan Online</span>
                         </span>
-                        @if(($pendingOnlineOrdersCount ?? 0) > 0)
-                            <span class="badge bg-warning text-dark rounded-pill">{{ $pendingOnlineOrdersCount }}</span>
-                        @endif
+                        <span data-pending-orders-badge class="badge bg-warning text-dark rounded-pill {{ ($pendingOnlineOrdersCount ?? 0) > 0 ? '' : 'd-none' }}">{{ $pendingOnlineOrdersCount ?? 0 }}</span>
                     </a>
                     <a href="{{ route('catalog.qr') }}" class="sidebar-link {{ request()->routeIs('catalog.qr') ? 'active' : '' }}">
                         <i class="ph ph-qr-code"></i> <span>QR Web Pelanggan</span>
@@ -111,11 +109,72 @@
                     <a href="{{ route('catalog.qr') }}" class="sidebar-link {{ request()->routeIs('catalog.qr') ? 'active' : '' }}">
                         <i class="ph ph-storefront"></i> <span>QR Web Pelanggan</span>
                     </a>
+                @elseif($userRole === 'gudang')
+                    <div class="sidebar-section-label pt-1">Menu Gudang &amp; Stok</div>
+                    <a href="{{ route('dashboard') }}" class="sidebar-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                        <i class="ph ph-warehouse"></i> <span>Dashboard Gudang</span>
+                    </a>
+                    <a href="{{ route('public-orders.index') }}" class="sidebar-link justify-content-between {{ request()->routeIs('public-orders.*') ? 'active' : '' }}">
+                        <span class="d-flex align-items-center gap-2">
+                            <i class="ph ph-globe"></i> <span>Pesanan Online</span>
+                        </span>
+                        <span data-pending-orders-badge class="badge bg-warning text-dark rounded-pill {{ ($pendingOnlineOrdersCount ?? 0) > 0 ? '' : 'd-none' }}">{{ $pendingOnlineOrdersCount ?? 0 }}</span>
+                    </a>
+                    <a href="{{ route('inventory.stock.index') }}" class="sidebar-link {{ request()->routeIs('inventory.stock.*') ? 'active' : '' }}">
+                        <i class="ph ph-stack"></i> <span>Kartu Stok &amp; Opname</span>
+                    </a>
+                    <a href="{{ route('inventory.po.index') }}" class="sidebar-link {{ request()->routeIs('inventory.po.*') ? 'active' : '' }}">
+                        <i class="ph ph-shopping-cart"></i> <span>Purchase Order</span>
+                    </a>
+                    <a href="{{ route('inventory.invoices.index') }}" class="sidebar-link {{ request()->routeIs('inventory.invoices.*') ? 'active' : '' }}">
+                        <i class="ph ph-receipt"></i> <span>Nota Supplier (Bon)</span>
+                    </a>
+                    <a href="{{ route('inventory.returns.index') }}" class="sidebar-link {{ request()->routeIs('inventory.returns.*') ? 'active' : '' }}">
+                        <i class="ph ph-arrow-u-up-left"></i> <span>Retur Supplier</span>
+                    </a>
+                    <a href="{{ route('fleet.jobs.index') }}" class="sidebar-link {{ request()->routeIs('fleet.jobs.*') ? 'active' : '' }}">
+                        <i class="ph ph-map-pin-line"></i> <span>Jadwal Pengiriman</span>
+                    </a>
+
+                    <div class="sidebar-section-label">Pribadi</div>
+                    <a href="{{ route('hr.attendance.index') }}" class="sidebar-link {{ request()->routeIs('hr.attendance.*') ? 'active' : '' }}">
+                        <i class="ph ph-qr-code"></i> <span>Absensi &amp; Scan QR</span>
+                    </a>
+                    <a href="{{ route('daily-reports.index') }}" class="sidebar-link {{ request()->routeIs('daily-reports.*') ? 'active' : '' }}">
+                        <i class="ph ph-clipboard-text"></i> <span>Laporan Harian</span>
+                    </a>
+                @elseif($userRole === 'driver')
+                    <div class="sidebar-section-label pt-1">Menu Driver &amp; Armada</div>
+                    <a href="{{ route('dashboard') }}" class="sidebar-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                        <i class="ph ph-truck"></i> <span>Dashboard Driver</span>
+                    </a>
+                    <a href="{{ route('fleet.jobs.index') }}" class="sidebar-link {{ request()->routeIs('fleet.jobs.*') ? 'active' : '' }}">
+                        <i class="ph ph-map-pin-line"></i> <span>Jadwal Pengiriman</span>
+                    </a>
+                    <a href="{{ route('fleet.vehicles.index') }}" class="sidebar-link {{ request()->routeIs('fleet.vehicles.*') ? 'active' : '' }}">
+                        <i class="ph ph-car"></i> <span>Master Armada</span>
+                    </a>
+                    <a href="{{ route('fleet.assets.index') }}" class="sidebar-link {{ request()->routeIs('fleet.assets.*') ? 'active' : '' }}">
+                        <i class="ph ph-wrench"></i> <span>Aset &amp; Peralatan</span>
+                    </a>
+
+                    <div class="sidebar-section-label">Pribadi</div>
+                    <a href="{{ route('hr.attendance.index') }}" class="sidebar-link {{ request()->routeIs('hr.attendance.*') ? 'active' : '' }}">
+                        <i class="ph ph-qr-code"></i> <span>Absensi &amp; Scan QR</span>
+                    </a>
+                    <a href="{{ route('daily-reports.index') }}" class="sidebar-link {{ request()->routeIs('daily-reports.*') ? 'active' : '' }}">
+                        <i class="ph ph-clipboard-text"></i> <span>Laporan Harian</span>
+                    </a>
                 @else
-                    <div class="sidebar-section-label pt-1">Utama & Laporan</div>
+                    <div class="sidebar-section-label pt-1">Utama &amp; Strategi</div>
                     <a href="{{ route('dashboard') }}" class="sidebar-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                         <i class="ph ph-squares-four"></i> <span>Dashboard</span>
                     </a>
+                    @if(in_array($userRole, ['owner', 'admin']))
+                    <a href="{{ route('setting.targets.index') }}" class="sidebar-link {{ request()->routeIs('setting.targets.*') ? 'active' : '' }}">
+                        <i class="ph ph-target"></i> <span>Strategi &amp; Target</span>
+                    </a>
+                    @endif
                     <a href="{{ route('daily-reports.index') }}" class="sidebar-link {{ request()->routeIs('daily-reports.*') ? 'active' : '' }}">
                         <i class="ph ph-clipboard-text"></i> <span>Laporan Harian</span>
                     </a>
@@ -135,9 +194,7 @@
                         <span class="d-flex align-items-center gap-2">
                             <i class="ph ph-globe"></i> <span>Pesanan Online</span>
                         </span>
-                        @if(($pendingOnlineOrdersCount ?? 0) > 0)
-                            <span class="badge bg-warning text-dark rounded-pill">{{ $pendingOnlineOrdersCount }}</span>
-                        @endif
+                        <span data-pending-orders-badge class="badge bg-warning text-dark rounded-pill {{ ($pendingOnlineOrdersCount ?? 0) > 0 ? '' : 'd-none' }}">{{ $pendingOnlineOrdersCount ?? 0 }}</span>
                     </a>
                     <a href="{{ route('catalog.qr') }}" class="sidebar-link {{ request()->routeIs('catalog.qr') ? 'active' : '' }}">
                         <i class="ph ph-qr-code"></i> <span>QR Web Pelanggan</span>
@@ -217,8 +274,8 @@
 
                     @if(in_array($userRole, ['owner', 'admin']))
                     <div class="sidebar-section-label">Pengaturan</div>
-                    <a href="{{ route('setting.targets.index') }}" class="sidebar-link {{ request()->routeIs('setting.targets.*') ? 'active' : '' }}">
-                        <i class="ph ph-target"></i> <span>Target Penjualan</span>
+                    <a href="{{ route('setting.store.index') }}" class="sidebar-link {{ request()->routeIs('setting.store.*') ? 'active' : '' }}">
+                        <i class="ph ph-storefront"></i> <span>Profil Toko &amp; Rekening</span>
                     </a>
                     <a href="{{ route('setting.checklists.index') }}" class="sidebar-link {{ request()->routeIs('setting.checklists.*') ? 'active' : '' }}">
                         <i class="ph ph-list-checks"></i> <span>Master Form Ceklis</span>
@@ -370,6 +427,62 @@
                     }, 10);
                 }
             });
+
+            @if(in_array($userRole, ['owner', 'admin', 'kasir', 'gudang']))
+            (function() {
+                let lastPendingCount = {{ (int) ($pendingOnlineOrdersCount ?? 0) }};
+                const endpoint = "{{ route('public-orders.pending-count') }}";
+                const ordersUrl = "{{ route('public-orders.index') }}";
+
+                function updateBadges(count) {
+                    document.querySelectorAll('[data-pending-orders-badge]').forEach(el => {
+                        el.textContent = count;
+                        if (count > 0) {
+                            el.classList.remove('d-none');
+                        } else {
+                            el.classList.add('d-none');
+                        }
+                    });
+                }
+
+                function showOrderToast(count) {
+                    let container = document.getElementById('live-order-toast-container');
+                    if (!container) {
+                        container = document.createElement('div');
+                        container.id = 'live-order-toast-container';
+                        container.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:1080;max-width:340px;';
+                        document.body.appendChild(container);
+                    }
+                    container.innerHTML = `
+                        <div class="alert alert-warning shadow-lg border-warning d-flex align-items-start gap-2 mb-0" role="alert">
+                            <i class="ph-fill ph-bell-ringing fs-4 text-dark mt-1"></i>
+                            <div class="flex-grow-1 small">
+                                <div class="fw-bold text-dark">Pesanan Online Baru!</div>
+                                <div>Ada <strong>${count}</strong> pesanan menunggu konfirmasi kasir.</div>
+                                <a href="${ordersUrl}" class="btn btn-dark btn-sm mt-2 py-1 px-2">Buka Pesanan Online</a>
+                            </div>
+                            <button type="button" class="btn-close btn-sm" onclick="this.closest('.alert').remove()"></button>
+                        </div>
+                    `;
+                }
+
+                setInterval(function() {
+                    if (document.hidden) return;
+                    fetch(endpoint, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+                        .then(r => r.ok ? r.json() : null)
+                        .then(data => {
+                            if (!data || typeof data.pending_count === 'undefined') return;
+                            const count = Number(data.pending_count);
+                            updateBadges(count);
+                            if (count > lastPendingCount) {
+                                showOrderToast(count);
+                            }
+                            lastPendingCount = count;
+                        })
+                        .catch(() => {});
+                }, 20000);
+            })();
+            @endif
         });
     </script>
     @stack('scripts')

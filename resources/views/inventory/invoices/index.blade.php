@@ -8,13 +8,36 @@
         <h2 class="page-title">Nota Supplier (Hutang Dagang)</h2>
         <p class="page-subtitle">Pantau tagihan jatuh tempo dan catat pembayaran cicilan atau pelunasan bon supplier.</p>
     </div>
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newInvoiceModal">
+        <i class="ph ph-plus"></i> Catat Nota Manual
+    </button>
 </div>
 
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-4 align-items-stretch">
     <div class="col-md-5">
-        <div class="stat-card" style="border-left: 4px solid #EF4444;">
+        <div class="stat-card h-100" style="border-left: 4px solid #EF4444;">
             <div class="stat-label text-danger">Total Sisa Bon (Hutang Berjalan)</div>
             <div class="stat-value fs-4">Rp {{ number_format($totalDebt, 0, ',', '.') }}</div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="card h-100">
+            <div class="card-body p-3 d-flex align-items-end">
+                <form action="{{ route('inventory.invoices.index') }}" method="GET" class="row g-2 w-100 align-items-end">
+                    <div class="col-8">
+                        <label class="form-label">Filter Status Pembayaran</label>
+                        <select name="status" class="form-select">
+                            <option value="">Semua Status</option>
+                            <option value="unpaid" {{ request('status') === 'unpaid' ? 'selected' : '' }}>Belum Bayar</option>
+                            <option value="partial" {{ request('status') === 'partial' ? 'selected' : '' }}>Dibayar Sebagian</option>
+                            <option value="paid" {{ request('status') === 'paid' ? 'selected' : '' }}>Lunas</option>
+                        </select>
+                    </div>
+                    <div class="col-4 d-flex gap-2">
+                        <button type="submit" class="btn btn-dark w-100">Filter</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -128,4 +151,46 @@
 </div>
 @endif
 @endforeach
+
+<!-- Modal Catat Nota Supplier Manual -->
+<div class="modal fade" id="newInvoiceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Catat Nota Hutang Supplier Manual</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ route('inventory.invoices.store') }}" method="POST">
+                @csrf
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label">Supplier</label>
+                        <select name="supplier_id" class="form-select" required>
+                            <option value="">-- Pilih Supplier --</option>
+                            @foreach($suppliers ?? [] as $sup)
+                                <option value="{{ $sup->id }}">{{ $sup->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nomor Nota / Faktur</label>
+                        <input type="text" name="invoice_number" class="form-control" required placeholder="Contoh: FAK-2026-001">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Total Tagihan (Rp)</label>
+                        <input type="number" name="total_amount" class="form-control tabular-nums" required min="1">
+                    </div>
+                    <div>
+                        <label class="form-label">Tanggal Jatuh Tempo (Opsional)</label>
+                        <input type="date" name="due_date" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan Nota Hutang</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 @endsection

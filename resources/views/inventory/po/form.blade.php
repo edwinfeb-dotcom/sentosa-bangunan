@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Buat Purchase Order')
+@section('title', isset($po) ? 'Edit Purchase Order' : 'Buat Purchase Order')
 
 @section('content')
 <div class="row justify-content-center">
@@ -9,13 +9,16 @@
             <a href="{{ route('inventory.po.index') }}" class="btn btn-light border btn-sm me-3">
                 <i class="ph ph-arrow-left"></i>
             </a>
-            <h4 class="fw-bold mb-0" style="color: #1E293B;">Buat Purchase Order Baru</h4>
+            <h4 class="fw-bold mb-0" style="color: #1E293B;">{{ isset($po) ? 'Edit Purchase Order: ' . $po->po_number : 'Buat Purchase Order Baru' }}</h4>
         </div>
 
         <div class="card">
             <div class="card-body p-4">
-                <form action="{{ route('inventory.po.store') }}" method="POST" x-data="poForm()">
+                <form action="{{ isset($po) ? route('inventory.po.update', $po->id) : route('inventory.po.store') }}" method="POST" x-data="poForm()">
                     @csrf
+                    @if(isset($po))
+                        @method('PUT')
+                    @endif
 
                     <!-- Info PO -->
                     <div class="row mb-4 bg-light rounded p-3 mx-0">
@@ -25,14 +28,14 @@
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-medium text-muted small">Tanggal PO</label>
-                            <input type="date" class="form-control bg-white" name="order_date" value="{{ date('Y-m-d') }}" required>
+                            <input type="date" class="form-control bg-white" name="order_date" value="{{ old('order_date', isset($po) ? \Carbon\Carbon::parse($po->order_date)->format('Y-m-d') : date('Y-m-d')) }}" required>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-medium text-muted small">Supplier</label>
                             <select class="form-select bg-white" name="supplier_id" required>
                                 <option value="">-- Pilih Supplier --</option>
                                 @foreach($suppliers as $supplier)
-                                    <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
+                                    <option value="{{ $supplier->id }}" {{ old('supplier_id', $po->supplier_id ?? '') == $supplier->id ? 'selected' : '' }}>{{ $supplier->name }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -95,14 +98,14 @@
 
                     <div class="mb-4">
                         <label class="form-label fw-medium">Catatan (Opsional)</label>
-                        <textarea class="form-control" name="notes" rows="2" placeholder="Tambahkan catatan pengiriman..."></textarea>
+                        <textarea class="form-control" name="notes" rows="2" placeholder="Tambahkan catatan pengiriman...">{{ old('notes', $po->notes ?? '') }}</textarea>
                     </div>
 
                     <hr class="mb-4">
 
                     <div class="d-flex justify-content-end gap-2">
                         <a href="{{ route('inventory.po.index') }}" class="btn btn-light border">Batal</a>
-                        <button type="submit" class="btn btn-primary">Simpan Purchase Order</button>
+                        <button type="submit" class="btn btn-primary">{{ isset($po) ? 'Simpan Perubahan PO' : 'Simpan Purchase Order' }}</button>
                     </div>
                 </form>
             </div>
@@ -114,8 +117,14 @@
 <script>
     function poForm() {
         let nextUid = 1;
+        @php
+            $initialPoItems = isset($po)
+                ? $po->items->map(fn ($it) => ['product_id' => $it->product_id, 'qty' => (int) $it->qty, 'price' => (float) $it->price])->values()
+                : [['product_id' => '', 'qty' => 1, 'price' => 0]];
+        @endphp
+        const rawItems = @json($initialPoItems);
         return {
-            items: [{ uid: nextUid++, product_id: '', qty: 1, price: 0 }],
+            items: rawItems.map(it => ({ uid: nextUid++, product_id: it.product_id, qty: it.qty, price: it.price })),
             get grandTotal() {
                 return this.items.reduce((total, item) => total + ((Number(item.qty) || 0) * (Number(item.price) || 0)), 0);
             },

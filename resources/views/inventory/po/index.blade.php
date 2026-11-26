@@ -42,22 +42,40 @@
                         <td>
                             @if($po->status === 'ordered')
                                 <span class="badge bg-warning bg-opacity-10 text-warning">Dipesan</span>
+                            @elseif($po->status === 'partial')
+                                <span class="badge bg-info bg-opacity-10 text-info">Sebagian</span>
                             @elseif($po->status === 'received')
                                 <span class="badge bg-success bg-opacity-10 text-success">Diterima</span>
+                            @elseif($po->status === 'cancelled')
+                                <span class="badge bg-danger bg-opacity-10 text-danger">Batal</span>
                             @else
                                 <span class="badge bg-secondary bg-opacity-10 text-secondary text-capitalize">{{ $po->status }}</span>
                             @endif
                         </td>
                         <td class="text-end">
                             <div class="d-inline-flex gap-1">
+                                <a href="{{ route('inventory.po.print', $po->id) }}" class="btn btn-sm btn-light border" title="Cetak PO">
+                                    <i class="ph ph-printer"></i>
+                                </a>
                                 <button type="button" class="btn btn-sm btn-light border" data-bs-toggle="modal" data-bs-target="#poDetailModal{{ $po->id }}">
                                     <i class="ph ph-eye"></i> Detail
                                 </button>
                                 @if($po->status === 'ordered')
-                                    <form action="{{ route('inventory.po.receive', $po->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Terima semua barang untuk PO ini? Stok dan Nota Hutang otomatis tercatat.')">
+                                    <a href="{{ route('inventory.po.edit', $po->id) }}" class="btn btn-sm btn-light border" title="Edit PO">
+                                        <i class="ph ph-pencil-simple text-primary"></i>
+                                    </a>
+                                    <form action="{{ route('inventory.po.cancel', $po->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Batalkan PO ini?')">
+                                        @csrf
+                                        <button type="submit" class="btn btn-sm btn-light border text-danger" title="Batalkan PO">
+                                            <i class="ph ph-x"></i>
+                                        </button>
+                                    </form>
+                                @endif
+                                @if(in_array($po->status, ['ordered', 'partial']))
+                                    <form action="{{ route('inventory.po.receive', $po->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Terima sisa barang untuk PO ini? Stok dan Nota Hutang otomatis tercatat.')">
                                         @csrf
                                         <button type="submit" class="btn btn-sm btn-success">
-                                            <i class="ph ph-check-circle"></i> Terima Barang
+                                            <i class="ph ph-check-circle"></i> Terima Penuh
                                         </button>
                                     </form>
                                 @endif
@@ -98,26 +116,47 @@
                         <div class="col-12"><strong>Catatan:</strong> {{ $po->notes }}</div>
                     @endif
                 </div>
-                <table class="table table-sm border">
-                    <thead>
-                        <tr>
-                            <th>Produk</th>
-                            <th class="text-end">Qty</th>
-                            <th class="text-end">Harga Beli</th>
-                            <th class="text-end">Subtotal</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($po->items as $item)
+                <form action="{{ route('inventory.po.receive', $po->id) }}" method="POST">
+                    @csrf
+                    <table class="table table-sm border mb-3">
+                        <thead>
                             <tr>
-                                <td>{{ $item->product->name ?? '-' }}</td>
-                                <td class="text-end">{{ $item->qty }}</td>
-                                <td class="text-end">Rp {{ number_format($item->price, 0, ',', '.') }}</td>
-                                <td class="text-end fw-semibold">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
+                                <th>Produk</th>
+                                <th class="text-end">Pesan</th>
+                                <th class="text-end">Sudah Masuk</th>
+                                @if(in_array($po->status, ['ordered', 'partial']))
+                                    <th class="text-end" style="width: 110px;">Terima Sekarang</th>
+                                @endif
+                                <th class="text-end">Harga Beli</th>
+                                <th class="text-end">Subtotal</th>
                             </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @foreach($po->items as $item)
+                                @php $rem = max(0, $item->qty - ($item->received_qty ?? 0)); @endphp
+                                <tr>
+                                    <td>{{ $item->product->name ?? '-' }}</td>
+                                    <td class="text-end">{{ $item->qty }}</td>
+                                    <td class="text-end">{{ $item->received_qty ?? 0 }}</td>
+                                    @if(in_array($po->status, ['ordered', 'partial']))
+                                        <td class="text-end">
+                                            <input type="number" name="received_qtys[{{ $item->id }}]" class="form-control form-control-sm text-end" min="0" max="{{ $rem }}" value="{{ $rem }}">
+                                        </td>
+                                    @endif
+                                    <td class="text-end">Rp {{ number_format($item->price, 0, ',', '.') }}</td>
+                                    <td class="text-end fw-semibold">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                    @if(in_array($po->status, ['ordered', 'partial']))
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn btn-success btn-sm">
+                                <i class="ph ph-check-circle"></i> Simpan Penerimaan (Parsial / Penuh)
+                            </button>
+                        </div>
+                    @endif
+                </form>
             </div>
         </div>
     </div>

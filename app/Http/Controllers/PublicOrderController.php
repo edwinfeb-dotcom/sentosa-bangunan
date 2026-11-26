@@ -33,6 +33,16 @@ class PublicOrderController extends Controller
         return view('admin.public_orders.index', compact('orders'));
     }
 
+    public function pendingCount()
+    {
+        $count = PublicOrder::where('status', 'pending')->count();
+
+        return response()->json([
+            'count' => $count,
+            'pending_count' => $count,
+        ]);
+    }
+
     public function process(PublicOrder $order)
     {
         return $this->transitionOrder($order, 'packed');
@@ -47,6 +57,12 @@ class PublicOrderController extends Controller
         return $this->transitionOrder($order, $request->status);
     }
 
+    public function printSlip(PublicOrder $order)
+    {
+        $order->load('items.product');
+        return view('admin.public_orders.print', compact('order'));
+    }
+
     private function transitionOrder(PublicOrder $order, string $targetStatus)
     {
         if (in_array($order->status, ['completed', 'cancelled'])) {
@@ -55,7 +71,63 @@ class PublicOrderController extends Controller
 
         try {
             DB::transaction(function () use ($order, $targetStatus) {
-                if ($targetStatus !== 'cancelled') {
+                if ($targetStatus === 'cancelled') {
+                    // Kembalikan stok jika pesanan sebelumnya sempat diproses (packed/shipped)
+                    $outLedgers = StockLedger::where('reference_type', PublicOrder::class)
+                        ->where('reference_id', $order->id)
+                        ->where('type', 'out')
+                        ->get();
+
+                    $alreadyReversedStock = StockLedger::where('reference_type', PublicOrder::class)
+                        ->where('reference_id', $order->id)
+                        ->where('type', 'in')
+                        ->exists();
+
+                    if ($outLedgers->isNotEmpty() && !$alreadyReversedStock) {
+                        foreach ($outLedgers as $ledger) {
+                            $product = Product::withStock()->find($ledger->product_id);
+                            if (!$product) {
+                                continue;
+                            }
+                            $stockBefore = $product->current_stock;
+                            StockLedger::create([
+                                'product_id' => $product->id,
+                                'user_id' => auth()->id(),
+                                'type' => 'in',
+                                'qty' => $ledger->qty,
+                                'stock_before' => $stockBefore,
+                                'stock_after' => $stockBefore + $ledger->qty,
+                                'reference_type' => PublicOrder::class,
+                                'reference_id' => $order->id,
+                                'description' => 'Batal Pesanan Online: ' . $order->order_code,
+                            ]);
+                        }
+                    }
+
+                    $inCash = CashLedger::where('reference_type', PublicOrder::class)
+                        ->where('reference_id', $order->id)
+                        ->where('type', 'in')
+                        ->first();
+
+                    $alreadyReversedCash = CashLedger::where('reference_type', PublicOrder::class)
+                        ->where('reference_id', $order->id)
+                        ->where('type', 'out')
+                        ->exists();
+
+                    if ($inCash && !$alreadyReversedCash) {
+                        CashLedger::create([
+                            'user_id' => auth()->id(),
+                            'wallet_id' => $inCash->wallet_id,
+                            'type' => 'out',
+                            'category' => 'retur_penjualan',
+                            'amount' => $inCash->amount,
+                            'description' => 'Refund Batal Pesanan Online: ' . $order->order_code,
+                            'reference_type' => PublicOrder::class,
+                            'reference_id' => $order->id,
+                            'date' => date('Y-m-d'),
+                        ]);
+                    }
+                } else {
                     $alreadyDeducted = StockLedger::where('reference_type', PublicOrder::class)
                         ->where('reference_id', $order->id)
                         ->exists();

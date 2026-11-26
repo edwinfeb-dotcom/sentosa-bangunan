@@ -18,34 +18,48 @@
             </p>
         </div>
     </div>
-    <button type="button" onclick="window.print()" class="btn btn-outline-dark d-print-none">
-        <i class="ph ph-printer"></i> Cetak Rekap Material
-    </button>
+    <div class="d-flex flex-wrap gap-2 d-print-none">
+        <a href="{{ route('project.projects.invoice', $project->id) }}" class="btn btn-outline-primary">
+            <i class="ph ph-receipt"></i> Invoice Tagihan Proyek
+        </a>
+        <button type="button" onclick="window.print()" class="btn btn-outline-dark">
+            <i class="ph ph-printer"></i> Cetak Rekap Material
+        </button>
+    </div>
 </div>
 
 <!-- Budget Progress -->
 @php
     $used = $project->total_material_cost;
+    $paidAmt = (float) ($project->paid_amount ?? 0);
+    $outstandingBill = max(0, $used - $paidAmt);
     $remaining = max(0, (float) $project->budget - $used);
     $pct = $project->budget_usage_percent;
 @endphp
 <div class="row g-3 mb-4">
-    <div class="col-md-4">
+    <div class="col-6 col-xl-3">
         <div class="stat-card">
             <div class="stat-label">Pagu Anggaran</div>
             <div class="stat-value">Rp {{ number_format($project->budget, 0, ',', '.') }}</div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-6 col-xl-3">
         <div class="stat-card">
-            <div class="stat-label">Realisasi Material Terpakai</div>
+            <div class="stat-label">Realisasi Material</div>
             <div class="stat-value text-accent">Rp {{ number_format($used, 0, ',', '.') }}</div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-6 col-xl-3">
         <div class="stat-card">
-            <div class="stat-label">Sisa Anggaran ({{ $pct }}% Terpakai)</div>
-            <div class="stat-value text-success">Rp {{ number_format($remaining, 0, ',', '.') }}</div>
+            <div class="stat-label">Sudah Dibayar / Termin</div>
+            <div class="stat-value text-success">Rp {{ number_format($paidAmt, 0, ',', '.') }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="stat-card">
+            <div class="stat-label">Sisa Tagihan / Sisa Pagu</div>
+            <div class="stat-value {{ $outstandingBill > 0 ? 'text-danger' : 'text-success' }}">Rp {{ number_format($outstandingBill, 0, ',', '.') }}</div>
+            <small class="text-muted">Sisa Pagu: Rp {{ number_format($remaining, 0, ',', '.') }} ({{ $pct }}%)</small>
         </div>
     </div>
 </div>
@@ -179,6 +193,64 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+
+        <div class="card mt-4 d-print-none">
+            <div class="card-header"><i class="ph ph-wallet text-success me-2"></i>Catat Pembayaran / Termin Proyek</div>
+            <div class="card-body p-4">
+                <form action="{{ route('project.projects.payments.store', $project->id) }}" method="POST" class="row g-2 align-items-end">
+                    @csrf
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small">Nominal (Rp)</label>
+                        <input type="number" name="amount" class="form-control form-control-sm tabular-nums" min="1" required>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small">Tanggal</label>
+                        <input type="date" name="payment_date" class="form-control form-control-sm" value="{{ date('Y-m-d') }}" required>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small">Masuk Dompet</label>
+                        <select name="wallet_id" class="form-select form-select-sm">
+                            @foreach($wallets ?? [] as $w)
+                                <option value="{{ $w->id }}">{{ $w->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label small">Catatan Termin</label>
+                        <input type="text" name="notes" class="form-control form-control-sm" placeholder="DP / Termin 1">
+                    </div>
+                    <div class="col-12 mt-2">
+                        <button type="submit" class="btn btn-success btn-sm"><i class="ph ph-check-circle"></i> Simpan Pembayaran &amp; Masuk Kas</button>
+                    </div>
+                </form>
+
+                @if($project->payments->isNotEmpty())
+                <hr>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Keterangan</th>
+                                <th>Dompet</th>
+                                <th class="text-end">Nominal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($project->payments as $pay)
+                            <tr>
+                                <td class="small">{{ $pay->payment_date->format('d/m/Y') }}</td>
+                                <td class="small">{{ $pay->notes ?? 'Pembayaran Proyek' }}</td>
+                                <td class="small">{{ $pay->wallet->name ?? '-' }}</td>
+                                <td class="text-end fw-bold text-success tabular-nums">Rp {{ number_format($pay->amount, 0, ',', '.') }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @endif
             </div>
         </div>
     </div>

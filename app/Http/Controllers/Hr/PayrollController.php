@@ -66,7 +66,11 @@ class PayrollController extends Controller
         $year = (int) $request->year;
         $workingDays = (int) ($request->working_days ?? 26);
 
-        $users = User::whereNotIn('role', ['owner', 'pelanggan'])->get();
+        $users = User::whereNotIn('role', ['owner', 'pelanggan'])
+            ->where(function ($q) {
+                $q->whereNull('employee_status')->orWhere('employee_status', '!=', 'nonaktif');
+            })
+            ->get();
         $generatedCount = 0;
 
         foreach ($users as $user) {
@@ -104,10 +108,10 @@ class PayrollController extends Controller
 
             $alphaDeduction = $alphaDays * $penaltyPerDay;
 
-            $unpaidDebts = EmployeeDebt::where('user_id', $user->id)->where('status', 'unpaid')->get();
+            // Kasbon belum dibayar dihitung sebagai potongan, namun baru ditandai lunas ('paid') saat gaji benar-benar dibayarkan
+            $unpaidDebts = EmployeeDebt::where('user_id', $user->id)->where('status', 'unpaid')->sum('amount');
             $allowance = $existing ? (float) $existing->allowance : 0;
-            $previousDebtDeduction = $existing ? (float) $existing->debt_deduction : 0;
-            $debtDeduction = $previousDebtDeduction + (float) $unpaidDebts->sum('amount');
+            $debtDeduction = (float) $unpaidDebts;
             $totalDeduction = $alphaDeduction + $debtDeduction;
 
             $netSalary = max(0, $basicSalary + $allowance - $totalDeduction);
@@ -128,10 +132,6 @@ class PayrollController extends Controller
                     'status' => $existing?->status ?? 'draft',
                 ]
             );
-
-            foreach ($unpaidDebts as $debt) {
-                $debt->update(['status' => 'paid']);
-            }
 
             $generatedCount++;
         }
@@ -170,6 +170,13 @@ class PayrollController extends Controller
         DB::transaction(function () use ($request, $payroll) {
             $payroll->update(['status' => 'paid']);
 
+            // Tandai kasbon karyawan lunas saat gaji dibayarkan
+            if ((float) $payroll->debt_deduction > 0) {
+                EmployeeDebt::where('user_id', $payroll->user_id)
+                    ->where('status', 'unpaid')
+                    ->update(['status' => 'paid']);
+            }
+
             if ($payroll->net_salary > 0) {
                 $walletId = $request->wallet_id ?: Wallet::where('is_active', true)->value('id');
                 CashLedger::create([
@@ -193,5 +200,39 @@ class PayrollController extends Controller
     {
         $payroll->load('user');
         return view('hr.payroll.slip', compact('payroll'));
+    }
+
+    public function export(Request $request)
+    {
+        $query = Payroll::with('user')->latest('year')->latest('month');
+        if ($request->filled('month')) {
+            $query->where('month', $request->month);
+        }
+        if ($request->filled('year')) {
+            $query->where('year', $request->year);
+        }
+        $rows = $query->get();
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fputcsv($out, ['Karyawan', 'Role', 'Periode', 'Hadir', 'Alpha', 'Gaji Pokok/Lembur', 'Bonus', 'Pot. Alpha', 'Pot. Kasbon', 'Gaji Bersih', 'Status']);
+            foreach ($rows as $p) {
+                fputcsv($out, [
+                    $p->user->name ?? '-',
+                    $p->user->role ?? '-',
+                    "{$p->month}/{$p->year}",
+                    $p->present_days,
+                    $p->alpha_days,
+                    $p->basic_salary,
+                    $p->allowance,
+                    $p->alpha_deduction,
+                    $p->debt_deduction,
+                    $p->net_salary,
+                    $p->status,
+                ]);
+            }
+            fclose($out);
+        }, 'Rekap_Payroll_' . date('Y-m-d') . '.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 }

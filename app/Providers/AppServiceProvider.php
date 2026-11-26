@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\PublicOrder;
+use App\Models\StoreSetting;
 use Carbon\Carbon;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\View;
@@ -28,6 +29,19 @@ class AppServiceProvider extends ServiceProvider
                 $pendingOnlineOrdersCount = 0;
             }
             $view->with('pendingOnlineOrdersCount', $pendingOnlineOrdersCount);
+        });
+
+        View::composer(['layouts.public', 'catalog.*', 'pos.receipt', 'fleet.jobs.waybill'], function ($view) {
+            try {
+                $storeSetting = StoreSetting::current();
+            } catch (\Throwable $e) {
+                $storeSetting = new StoreSetting([
+                    'store_name' => 'Sentosa Bangunan',
+                    'store_address' => StoreSetting::DEFAULT_ADDRESS,
+                    'show_customer_accounts' => true,
+                ]);
+            }
+            $view->with('storeSetting', $storeSetting);
         });
     }
 }

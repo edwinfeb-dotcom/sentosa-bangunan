@@ -57,12 +57,14 @@
                             <button type="submit" class="btn btn-outline-danger btn-sm">Keluar</button>
                         </form>
                     @else
-                        <a href="{{ route('customer.register') }}" class="btn btn-light border bg-white btn-sm">
-                            <i class="ph ph-user-plus"></i> Daftar Pembeli
-                        </a>
-                        <a href="{{ route('customer.login') }}" class="btn btn-dark btn-sm">
-                            <i class="ph ph-sign-in"></i> Masuk Pembeli
-                        </a>
+                        @if($storeSetting->show_customer_accounts ?? true)
+                            <a href="{{ route('customer.register') }}" class="btn btn-light border bg-white btn-sm">
+                                <i class="ph ph-user-plus"></i> Daftar Pembeli
+                            </a>
+                            <a href="{{ route('customer.login') }}" class="btn btn-dark btn-sm">
+                                <i class="ph ph-sign-in"></i> Masuk Pembeli
+                            </a>
+                        @endif
                     @endauth
                 </div>
             </div>

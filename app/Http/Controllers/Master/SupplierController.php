@@ -37,6 +37,30 @@ class SupplierController extends Controller
         return redirect()->route('master.suppliers.index')->with('success', 'Supplier berhasil ditambahkan.');
     }
 
+    public function show(Supplier $supplier)
+    {
+        $products = \App\Models\Product::withStock()
+            ->where('supplier_id', $supplier->id)
+            ->orderBy('name')
+            ->get();
+
+        $purchaseOrders = \App\Models\PurchaseOrder::where('supplier_id', $supplier->id)
+            ->latest()
+            ->limit(15)
+            ->get();
+
+        $invoices = \App\Models\SupplierInvoice::where('supplier_id', $supplier->id)
+            ->latest()
+            ->limit(15)
+            ->get();
+
+        $totalDebt = (float) \App\Models\SupplierInvoice::where('supplier_id', $supplier->id)
+            ->where('status', '!=', 'paid')
+            ->sum(\Illuminate\Support\Facades\DB::raw('total_amount - paid_amount'));
+
+        return view('master.suppliers.show', compact('supplier', 'products', 'purchaseOrders', 'invoices', 'totalDebt'));
+    }
+
     public function edit(Supplier $supplier)
     {
         return view('master.suppliers.form', compact('supplier'));

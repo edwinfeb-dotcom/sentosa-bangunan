@@ -24,6 +24,7 @@ class WalletController extends Controller
             'name' => 'required|string|max:100',
             'type' => 'required|in:cash,bank,ewallet',
             'account_number' => 'nullable|string|max:100',
+            'account_holder' => 'nullable|string|max:120',
             'initial_balance' => 'required|numeric|min:0',
         ]);
 
@@ -31,8 +32,10 @@ class WalletController extends Controller
             'name' => $request->name,
             'type' => $request->type,
             'account_number' => $request->account_number,
+            'account_holder' => $request->account_holder,
             'initial_balance' => $request->initial_balance,
             'is_active' => true,
+            'show_on_catalog' => $request->boolean('show_on_catalog'),
         ]);
 
         return back()->with('success', 'Dompet / Rekening baru berhasil ditambahkan.');
@@ -44,6 +47,7 @@ class WalletController extends Controller
             'name' => 'required|string|max:100',
             'type' => 'required|in:cash,bank,ewallet',
             'account_number' => 'nullable|string|max:100',
+            'account_holder' => 'nullable|string|max:120',
             'initial_balance' => 'required|numeric|min:0',
         ]);
 
@@ -51,8 +55,10 @@ class WalletController extends Controller
             'name' => $request->name,
             'type' => $request->type,
             'account_number' => $request->account_number,
+            'account_holder' => $request->account_holder,
             'initial_balance' => $request->initial_balance,
             'is_active' => $request->has('is_active'),
+            'show_on_catalog' => $request->has('show_on_catalog'),
         ]);
 
         return back()->with('success', 'Data dompet berhasil diperbarui.');

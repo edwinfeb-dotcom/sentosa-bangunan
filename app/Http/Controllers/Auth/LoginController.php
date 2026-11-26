@@ -31,6 +31,16 @@ class LoginController extends Controller
                 ])->onlyInput('email');
             }
 
+            if (Auth::user()->employee_status === 'nonaktif') {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return back()->withErrors([
+                    'email' => 'Akun Anda sedang dinonaktifkan oleh Owner. Hubungi Owner/Admin untuk mengaktifkan kembali.',
+                ])->onlyInput('email');
+            }
+
             $request->session()->regenerate();
             return redirect()->intended('/dashboard');
         }

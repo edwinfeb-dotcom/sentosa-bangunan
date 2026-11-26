@@ -9,9 +9,15 @@
         <p class="page-subtitle">Pantau seluruh mutasi stok masuk/keluar, cek barang menipis, dan sesuaikan stok fisik gudang.</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
+        <a href="{{ route('inventory.stock.export', request()->query()) }}" class="btn btn-outline-primary">
+            <i class="ph ph-file-xls"></i> Export Kartu Stok
+        </a>
         <a href="{{ route('master.products.index') }}" class="btn btn-light border">
             <i class="ph ph-package"></i> Master Produk
         </a>
+        <button type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#batchOpnameModal">
+            <i class="ph ph-list-checks"></i> Opname Massal
+        </button>
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#stockOpnameModal">
             <i class="ph ph-clipboard-text"></i> Input Stock Opname
         </button>
@@ -209,6 +215,54 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Batal</button>
                     <button type="submit" class="btn btn-primary">Simpan Stock Opname</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Stock Opname Massal -->
+<div class="modal fade" id="batchOpnameModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Stock Opname Massal (Banyak Produk Sekaligus)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ route('inventory.stock.batch-opname') }}" method="POST">
+                @csrf
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label">Catatan Opname</label>
+                        <input type="text" name="notes" class="form-control" value="Opname Massal {{ date('d/m/Y') }}">
+                    </div>
+                    <div class="table-responsive" style="max-height: 360px;">
+                        <table class="table table-sm mb-0">
+                            <thead class="sticky-top bg-white">
+                                <tr>
+                                    <th>Produk</th>
+                                    <th class="text-end">Stok Sistem</th>
+                                    <th style="width: 140px;">Stok Fisik</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($allProducts->take(80) as $prod)
+                                <tr>
+                                    <td class="small fw-medium">{{ $prod->name }}</td>
+                                    <td class="text-end small text-muted">{{ $prod->current_stock }} {{ $prod->unit }}</td>
+                                    <td>
+                                        <input type="number" name="actual_stocks[{{ $prod->id }}]" class="form-control form-control-sm tabular-nums" min="0" placeholder="{{ $prod->current_stock }}">
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    <small class="text-muted d-block mt-2">Kosongkan kolom Stok Fisik jika tidak ada perubahan.</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-dark">Simpan Semua Penyesuaian</button>
                 </div>
             </form>
         </div>

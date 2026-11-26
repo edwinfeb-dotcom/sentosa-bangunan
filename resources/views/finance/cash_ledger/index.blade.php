@@ -8,7 +8,13 @@
         <h2 class="page-title">Buku Kas</h2>
         <p class="page-subtitle">Catatan transaksi kas masuk dan kas keluar seluruh dompet toko.</p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex flex-wrap gap-2 d-print-none">
+        <a href="{{ route('finance.cash-ledger.export', request()->query()) }}" class="btn btn-outline-success">
+            <i class="ph ph-file-xls"></i> Export CSV
+        </a>
+        <button type="button" onclick="window.print()" class="btn btn-light border">
+            <i class="ph ph-printer"></i> Cetak
+        </button>
         @if(in_array(auth()->user()->role, ['owner', 'admin']))
         <a href="{{ route('finance.cash-flow.index') }}" class="btn btn-outline-primary">
             <i class="ph ph-arrows-left-right"></i> Laporan Arus Kas
@@ -90,6 +96,7 @@
                         <th>Tipe</th>
                         <th>Nominal</th>
                         <th>Oleh</th>
+                        <th class="text-end d-print-none">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -114,10 +121,23 @@
                             {{ $ledger->type === 'in' ? '+' : '-' }} Rp {{ number_format($ledger->amount, 0, ',', '.') }}
                         </td>
                         <td class="text-muted">{{ $ledger->user->name ?? '-' }}</td>
+                        <td class="text-end d-print-none">
+                            @if($ledger->reference_type === null)
+                                <form action="{{ route('finance.cash-ledger.destroy', $ledger->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus catatan kas manual ini?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-light border text-danger" title="Hapus Catatan Manual">
+                                        <i class="ph ph-trash"></i>
+                                    </button>
+                                </form>
+                            @else
+                                <small class="text-muted">Otomatis</small>
+                            @endif
+                        </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="text-center py-5 text-muted">
+                        <td colspan="7" class="text-center py-5 text-muted">
                             <i class="ph ph-wallet fs-1 d-block mb-2 opacity-50"></i>
                             Belum ada catatan kas.
                         </td>
