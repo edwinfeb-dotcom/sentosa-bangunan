@@ -18,20 +18,6 @@ x-data="checkoutApp()"
         </a>
     </div>
 
-    @if(session('error'))
-        <div class="alert alert-danger border-0 shadow-sm mb-4">{{ session('error') }}</div>
-    @endif
-
-    @if($errors->any())
-        <div class="alert alert-danger border-0 shadow-sm mb-4">
-            <ul class="mb-0 ps-3 small">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
     <form action="{{ route('catalog.store-order') }}" method="POST">
         @csrf
         <input type="hidden" name="cart_data" :value="JSON.stringify(cart)">

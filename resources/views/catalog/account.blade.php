@@ -9,13 +9,6 @@
 @endphp
 
 <div class="container py-4 py-md-5">
-    @if(session('success'))
-        <div class="alert alert-success border-0 shadow-sm mb-4 d-flex align-items-center gap-2">
-            <i class="ph ph-check-circle fs-5"></i>
-            <span>{{ session('success') }}</span>
-        </div>
-    @endif
-
     @if($user->role !== 'pelanggan')
         <div class="alert alert-warning border-0 shadow-sm mb-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div class="small">

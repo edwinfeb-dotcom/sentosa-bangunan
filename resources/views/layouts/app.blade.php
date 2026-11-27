@@ -354,38 +354,12 @@
 
             <!-- CONTENT -->
             <main class="container-fluid p-3 p-md-4 flex-grow-1">
-                @if(session('success'))
-                    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4 d-flex align-items-center gap-2" role="alert">
-                        <i class="ph ph-check-circle fs-5 flex-shrink-0"></i>
-                        <div>{{ session('success') }}</div>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                @endif
-
-                @if(session('error'))
-                    <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4 d-flex align-items-center gap-2" role="alert">
-                        <i class="ph ph-warning-circle fs-5 flex-shrink-0"></i>
-                        <div>{{ session('error') }}</div>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                @endif
-
-                @if($errors->any())
-                    <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
-                        <div class="fw-bold mb-1"><i class="ph ph-warning-circle me-1"></i> Terjadi kesalahan validasi:</div>
-                        <ul class="mb-0 ps-3 small">
-                            @foreach($errors->all() as $err)
-                                <li>{{ $err }}</li>
-                            @endforeach
-                        </ul>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                @endif
-
                 @yield('content')
             </main>
         </div>
     </div>
+
+    @include('partials.sb-notifications')
 
     <script>
         setInterval(function () {
@@ -446,24 +420,15 @@
                 }
 
                 function showOrderToast(count) {
-                    let container = document.getElementById('live-order-toast-container');
-                    if (!container) {
-                        container = document.createElement('div');
-                        container.id = 'live-order-toast-container';
-                        container.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:1080;max-width:340px;';
-                        document.body.appendChild(container);
+                    if (typeof window.sbToast === 'function') {
+                        window.sbToast(`Ada ${count} pesanan online menunggu konfirmasi kasir.`, 'warning', {
+                            title: 'Pesanan Online Baru!',
+                            actionUrl: ordersUrl,
+                            actionLabel: 'Buka Pesanan Online',
+                            chime: true,
+                            duration: 9000
+                        });
                     }
-                    container.innerHTML = `
-                        <div class="alert alert-warning shadow-lg border-warning d-flex align-items-start gap-2 mb-0" role="alert">
-                            <i class="ph-fill ph-bell-ringing fs-4 text-dark mt-1"></i>
-                            <div class="flex-grow-1 small">
-                                <div class="fw-bold text-dark">Pesanan Online Baru!</div>
-                                <div>Ada <strong>${count}</strong> pesanan menunggu konfirmasi kasir.</div>
-                                <a href="${ordersUrl}" class="btn btn-dark btn-sm mt-2 py-1 px-2">Buka Pesanan Online</a>
-                            </div>
-                            <button type="button" class="btn-close btn-sm" onclick="this.closest('.alert').remove()"></button>
-                        </div>
-                    `;
                 }
 
                 setInterval(function() {

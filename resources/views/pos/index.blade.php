@@ -456,6 +456,9 @@
                 this.noticeType = type;
                 if (this.noticeTimer) clearTimeout(this.noticeTimer);
                 this.noticeTimer = setTimeout(() => { this.noticeText = ''; }, 2600);
+                if (typeof window.sbToast === 'function' && type === 'error') {
+                    window.sbToast(msg, 'error', { title: 'Perhatian Kasir', duration: 3500 });
+                }
             },
             clearCart() {
                 this.cart = [];

@@ -90,6 +90,7 @@
         </div>
     </footer>
 
+    @include('partials.sb-notifications')
     @stack('scripts')
     <script>
         document.addEventListener('submit', function (e) {

@@ -1604,6 +1604,14 @@ class SentosaAppTest extends TestCase
 
         $backupRes = $this->post(route('setting.backup.run'));
         $backupRes->assertRedirect()->assertSessionHas('success');
+        // Verifikasi custom notification stack & custom confirm modal aktif di halaman staf dan publik
+        $this->followingRedirects()->get(route('setting.backup.index'))
+            ->assertStatus(200)
+            ->assertSee('id="sb-toast-stack"', false)
+            ->assertSee('id="sbConfirmModal"', false);
+        $this->get(route('catalog.index'))
+            ->assertStatus(200)
+            ->assertSee('id="sb-toast-stack"', false);
         // Cleanup any snapshot created during test run so test stays clean
         $latestBackup = collect(glob(storage_path('app/backups/*.sql')))->sortByDesc(fn ($p) => filemtime($p))->first();
         if ($latestBackup) {
